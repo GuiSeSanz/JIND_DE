@@ -373,3 +373,69 @@ dev.off()
 
 
 
+
+# Mohit Live
+
+
+
+pd <- import("pandas")
+df <- pd$read_pickle('test.pkl')
+
+df2 <- pd$read_pickle('JIND_assignmentbrftune.pkl')
+
+
+data <- t(df[, -which(colnames(df) %in% c('labels'))])
+stand_dev <- apply(data,1, sd)
+data <- data[!rownames(data) %in% names(which(stand_dev ==0)), ]
+
+
+
+
+df2$cell_names <- rownames(df2)
+G4 <- df2[df2$labels == 'CD8 T cell' & df2$predictions == 'Unassigned' ,'cell_names']
+G3 <- df2[df2$labels == 'CD4 T cell' & df2$predictions == 'Unassigned' ,'cell_names']
+
+
+G2 <- df2[df2$labels == 'CD8 T cell' & df2$raw_predictions == 'CD4 T cell', 'cell_names']
+real_cd8 <- df2[df2$labels == 'CD8 T cell' , 'cell_names']
+
+real_cd8 <-  real_cd8[-which(real_cd8 %in% G2)]
+
+
+
+selection <- c(G2, real_cd8)
+data_CD8VsG2 <- data[ , colnames(data) %in%  selection]
+
+
+DESIGN <- data.frame(cells = G2, labels = 'G2')
+DESIGN <- rbind(DESIGN, data.frame(cells= real_cd8, labels = 'CD8'))
+
+DESIGN <- DESIGN[ order(colnames(data_CD8VsG2)), ]
+
+
+design_tmp <- as.matrix(DESIGN[, 'labels'])
+design_tmp[design_tmp == 'G2'] <-1
+design_tmp[design_tmp == 'CD8'] <-0
+design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+colnames(design_tmp) <- c('CD8', 'G2')
+rownames(design_tmp) <- colnames(data_CD8VsG2)
+
+
+
+### DE
+# create the linear model
+fit_tmp <- lmFit(data_CD8VsG2, design_tmp)
+# model correction
+fit_tmp <- eBayes(fit_tmp)
+# results <- topTable(fit_tmp, n=Inf)
+x <- paste0('CD8', '-', 'G2')
+contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('CD8', 'G2'))
+fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+fit2_tmp <- eBayes(fit2_tmp)
+tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+tmp$gene_name <- rownames(tmp)
+
+
+pdf('./Plots/CD8_VsG2_B10_FC_1.pdf')
+	graphContrast(tmp, paste0( 'CD4_VsUnassigned' ," (Ctrl B > 5, FC>1)"), 5, 1, 1)
+dev.off()
