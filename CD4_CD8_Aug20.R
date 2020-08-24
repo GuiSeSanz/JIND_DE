@@ -368,6 +368,6 @@ tmp <- merge(tmp, gencode22, by= 'gene_name')
 saveRDS(tmp, 'CD4VsUnassignedCD4.rds')
 
 pdf('./Plots/CD4_VsUnassigned_B10_FC_1.pdf')
-	graphContrast(tmp, paste0( 'CD4_realVsPred' ," (Ctrl B > 10, FC>1)"), 10, 1, 1)
+	graphContrast(tmp, paste0( 'CD4_VsUnassigned' ," (Ctrl B > 10, FC>1)"), 10, 1, 1)
 dev.off()
 
