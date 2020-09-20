@@ -962,6 +962,33 @@ dev.off()
 
 
 
+# Check the confused cell samples
+
+library(VennDiagram)
+pd <- import("pandas")
+
+
+annotation_all <- pd$read_pickle('/home/sevastopol/data/gserranos/JIND_DE/Data/JIND_assignmentbrftune_allLabels.pkl')
+annotation_all$cell_names <- rownames(annotation_all)
+
+annotation_cd4cd8 <- pd$read_pickle('/home/sevastopol/data/gserranos/JIND_DE/Data/JIND_assignmentbrftune_cd4_cd8.pkl')
+annotation_cd4cd8$cell_names <- rownames(annotation_cd4cd8)
+
+cd4 <- 'CD4 T cell'
+cd8 <- 'CD8 T cell'
+
+all    <- annotation_all[annotation_all$labels == cd4 & annotation_all$predictions != cd4, 'cell_names']
+cd4cd8 <- annotation_cd4cd8[annotation_cd4cd8$labels == cd4 & annotation_cd4cd8$predictions != cd4, 'cell_names']
+
+
+venn.diagram(list(all, cd4cd8), category.names=c('all', 'cd4cd8'), filename='/home/sevastopol/data/gserranos/JIND_DE/Plots/Test.png', imagetype='png')
+
+all_missclass <- all[which(!(all %in% cd4cd8))]
+annotation_all[annotation_all$cell_names %in% all_missclass, 'labels']
+
+
+
+
 # pdf_files <- list.files('./Plots/', pattern = '^TT')
 
 # convert TT_cd4realVscd4_classCd8_HM.pdf TT_cd4realVscd4_classCd8_HM.png
@@ -985,3 +1012,138 @@ dev.off()
 # convert TT_MonFCVsMonFC_Unassigned_HM.pdf TT_MonFCVsMonFC_Unassigned_HM.png
 # convert TT_MonFCVsMonFC_Unassigned_TSNE.pdf TT_MonFCVsMonFC_Unassigned_TSNE.png
 # convert TT_MonFCVsMonFC_Unassigned_VP.pdf TT_MonFCVsMonFC_Unassigned_VP.png
+
+
+
+#######################################
+#######################################
+# FINAL FIGURE 
+#######################################
+#######################################
+
+annotation$Final <- ifelse(annotation$label == annotation$predictions, annotation$label , 'Miss')
+
+colors <- c(
+"NK_cell"  = "#cb5698",
+"Monocyte_CD14" = "#b07052",
+"CD8_T_cell" = "#92cbb2",
+"B_cell" = "#4d623c",
+"CD4_T_cell" = "#4b2e48",
+"Plasmacytoid_dendritic_cell" = "#ccbb51",
+"Monocyte_FCGR3A" = '#8049be',
+"Megakaryocyte" = "#79cd57",
+"Hematopoietic_stem_cell"    = '#5a628c',
+"Miss" = '#ea5148'
+)
+
+
+
+ann_color <- annotation[rownames(annotation) %in% colnames(all_data), c('cell_names', 'labels')]
+ann_color[ann_color$cell_names %in% G2, 'labels'] <- 'TARGET'
+
+
+plotter$labels <- annotation$Final
+
+pdf('./Plots/Final_TSNE.pdf', width=10, height=10)
+ggplot(plotter, aes(x=V1, y=V2, color = labels)) + theme_classic() +geom_point(size = 1.5, alpha = 0.7) +scale_color_manual(values = colors)
+dev.off()
+
+
+
+
+target <- 'Monocyte_FCGR3A'
+obj    <- 'Monocyte_CD14'
+
+G1 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+G2 <- annotation[annotation$labels == target & annotation$prediction == obj, 'cell_names']
+
+selection <- c(G1, G2)
+
+data_tmp <- all_data[ , colnames(all_data) %in%  selection]
+
+DESIGN <- data.frame(cells = colnames(data_tmp))
+labels <- c()
+for (cell in DESIGN$cells){
+    ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
+}
+DESIGN$labels <- labels
+
+design_tmp <- as.matrix(DESIGN[, 'labels'])
+design_tmp[design_tmp != 'G1'] <-1
+design_tmp[design_tmp == 'G1'] <-0
+design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+colnames(design_tmp) <- c('G1', 'G2')
+rownames(design_tmp) <- colnames(data_tmp)
+
+
+### DE
+# create the linear model
+fit_tmp <- lmFit(data_tmp, design_tmp)
+# model correction
+fit_tmp <- eBayes(fit_tmp)
+# results <- topTable(fit_tmp, n=Inf)
+x <- paste0('G1', '-', 'G2')
+contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
+fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+fit2_tmp <- eBayes(fit2_tmp)
+tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+tmp$gene_name <- rownames(tmp)
+tmp <- merge(tmp, gencode22, by= 'gene_name')
+
+
+
+tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+
+pdf('./Plots/Final_MonFCVsMonFC_classMonCD_VP.pdf')
+	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
+dev.off()
+
+tmp$logpval <- -log(tmp$P.Value)
+tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+
+saveRDS(tmp2, './Data/TT_MonFCVsMonFC_classMonCD.rds')
+
+
+data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2[1:20, 'gene_name'],]
+data2heat[data2heat > 5] <- 5
+
+ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
+rownames(ann) <- colnames(data2heat)
+Var1        <- c(colors['Monocyte_CD14'], colors['Monocyte_FCGR3A'])
+names(Var1) <- c(levels(ann$Var1))
+anno_colors <- list(Var1 = Var1)
+
+pdf('./Plots/Final_MonFCVsMonFC_classMonCD_HM.pdf')
+pheatmap( data2heat, cluster_rows = T, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F)
+dev.off()
+
+
+
+# unique(annotation$labels)
+GREY <- '#74797a'
+TARGET <- '#cc5f43'
+colors <- c(
+"TARGET" = TARGET,
+"NK_cell"  = GREY,
+"Monocyte_CD14" = '#59a1bd',
+"CD8_T_cell" = GREY,
+"B_cell" = GREY,
+"CD4_T_cell" = GREY,
+"Plasmacytoid_dendritic_cell" = GREY,
+"Monocyte_FCGR3A" = '#a7993d',
+"Megakaryocyte" = GREY,
+"Hematopoietic_stem_cell"    = GREY
+)
+
+
+ann_color <- annotation[rownames(annotation) %in% colnames(all_data), c('cell_names', 'labels')]
+ann_color[ann_color$cell_names %in% G2, 'labels'] <- 'TARGET'
+
+
+plotter$labels <- ann_color$labels
+
+pdf('./Plots/Final_MonFCVsMonFC_classMonCD_TSNE.pdf')
+ggplot(plotter, aes(x=V1, y=V2, color = labels)) + theme_bw() +geom_point(size = 1.5) +scale_color_manual(values = colors)
+dev.off()
+
