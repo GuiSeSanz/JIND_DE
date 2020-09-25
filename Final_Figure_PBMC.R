@@ -174,9 +174,9 @@ plotter$predictions <- annotation$labels
 rownames(plotter) <- annotation$cell_names
 plotter$shapes <- ifelse(annotation$predictions == 'Unassigned', 18, 20)
 
-pdf('./Plots/Final_TSNE_PBMC.pdf', width=7, height=5)
+pdf('./Plots/Final_TSNE_PBMC_.pdf', width=7, height=5)
 ggplot(plotter, aes(x=tSNE1, y=tSNE2, color = predictions)) + 
-geom_point(size = 2, alpha = 1) + 
+geom_point(size = 1.5, alpha = 0.8) + 
 scale_shape_identity() + 
 scale_color_manual(values = colors) + 
 theme_classic() + 

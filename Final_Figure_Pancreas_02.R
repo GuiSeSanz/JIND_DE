@@ -238,9 +238,11 @@ dev.off()
 
 tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+tmp2 <- tmp2[tmp2$P.Value < 0.05,]
 
 
 data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2[1:100, 'gene_name'],]
+
 data2heat[data2heat > 5] <- 5
 
 ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
@@ -250,14 +252,14 @@ names(Var1) <- c(levels(ann$Var1))
 anno_colors <- list(Var1 = Var1)
 
 ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
-ann$Group <-  ifelse(ann$Group == 'ductal', 'G1', 'G2')
+LUM$Group <-  ifelse(ann$Group == 'ductal', 'G1', 'G2')
 rownames(ann) <- colnames(data2heat)
 Group         <- c(colors['ductal'], colors['acinar'])
 # names(Group)  <- c(levels(ann$Group))
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_Pancreas02_HM.pdf', heigh = 30)
+pdf('./Plots/Final_Pancreas02_HM_KRT19.pdf', heigh = 30)
 pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
 dev.off()
 
@@ -331,9 +333,13 @@ dev.off()
 
 tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+tmp2 <- tmp2[tmp2$P.Value < 0.05,]
+
+golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1')
+# tmp2[tmp2$gene_name %in% golden_boys,]
 
 
-data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2[1:100, 'gene_name'],]
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys,tmp2[1:100, 'gene_name']),]
 data2heat[data2heat > 5] <- 5
 
 ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
@@ -350,6 +356,176 @@ Group         <- c(colors['ductal'], colors['acinar'])
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_Pancreas02RAW_HM.pdf', heigh = 30)
-pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
+p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
+
+row_order <- p$tree_row$order
+col_order <- p$tree_col$order
+data2heat <- data2heat[row_order,col_order]
+krtdata <- t(as.data.frame(data2heat[rownames(data2heat) %in% c('KRT19'),]))
+rownames(krtdata) <- 'KRT19'
+data2heat <- data2heat[!rownames(data2heat) %in% c('KRT19'),]
+data2heat <- rbind(krtdata, data2heat)
+
+pdf('./Plots/Final_Pancreas02RAW_KRT19_HM.pdf')
+pheatmap( data2heat[1:20,], cluster_rows = F, treeheight_row = 0, annotation_col = ann, , clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
 dev.off()
+
+
+# TSNE LOOP
+
+for (i in seq(1:20)){
+	print(i)
+	colors = c(
+	"alpha" = rgb(31, 119, 180, max=255), #BLUE
+	"ductal" = rgb(255, 127, 14, max=255), #ORANGE
+	"mast" = rgb(127, 127, 127, max=255), #GREY
+	"beta" =rgb(44, 160, 44, max=255), #GREEN
+	"gamma" =  rgb(214, 39, 40, max=255), #RED
+	"acinar" = rgb(148, 103, 189, max=255), #PURPLE
+	"delta"  = rgb(140, 86, 75, max=255), #BROWN
+	"epsilon"    = rgb(188, 189, 34, max=255), # LIME
+	"endothelial" = rgb(227, 119, 194, max=255)) # PINK
+	tsne_out <- Rtsne(as.matrix(t(all_data)))
+	plotter <-  as.data.frame(tsne_out$Y)
+	ann_color <- annotation[rownames(annotation) %in% colnames(all_data), c('cell_names', 'labels')]
+	names(plotter) <- c('tSNE1', 'tSNE2')
+	plotter$predictions <- annotation$labels
+	rownames(plotter) <- annotation$cell_names
+	plotter$shapes <- ifelse(annotation$predictions == 'Unassigned', 18, 20)
+	pdf(paste0('./Plots/TSNE/Final_TSNE_Pancreas02__', i,'.pdf'), width=7, height=5)
+	p<-ggplot(plotter, aes(x=tSNE1, y=tSNE2, color = predictions)) + 
+	geom_point(size = 1.5, alpha = 0.8) + 
+	scale_shape_identity() + 
+	scale_color_manual(values = colors) + 
+	theme_classic() + 
+	theme(  legend.position="top", 
+			legend.title=element_blank(),
+			axis.text.x=element_blank(),
+			axis.ticks.x=element_blank(), 
+			axis.text.y=element_blank(),
+			axis.ticks.y=element_blank(), 
+			plot.title = element_text(hjust = 0.5)) +
+			guides(colour=guide_legend(nrow=2, override.aes = list(size=5)))
+	print(p)
+	dev.off()
+}
+
+
+
+
+
+#########################
+# NEGATIVE CONTROL
+#########################
+
+
+
+target <- 'ductal'
+obj    <- 'acinar'
+
+G1 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+G2 <- sample(G1, round(length(G1)/2))
+G1 <- setdiff(G1, G2)
+
+selection <- c(G1, G2)
+
+data_tmp <- all_data[ , colnames(all_data) %in%  selection]
+
+DESIGN <- data.frame(cells = colnames(data_tmp))
+labels <- c()
+for (cell in DESIGN$cells){
+    ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
+}
+DESIGN$labels <- labels
+
+design_tmp <- as.matrix(DESIGN[, 'labels'])
+design_tmp[design_tmp != 'G1'] <-1
+design_tmp[design_tmp == 'G1'] <-0
+design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+colnames(design_tmp) <- c('G1', 'G2')
+rownames(design_tmp) <- colnames(data_tmp)
+
+
+### DE
+# create the linear model
+fit_tmp <- lmFit(data_tmp, design_tmp)
+# model correction
+fit_tmp <- eBayes(fit_tmp)
+# results <- topTable(fit_tmp, n=Inf)
+x <- paste0('G1', '-', 'G2')
+contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
+fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+fit2_tmp <- eBayes(fit2_tmp)
+tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+tmp$gene_name <- rownames(tmp)
+tmp <- merge(tmp, gencode22, by= 'gene_name')
+
+
+
+tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+
+pdf('./Plots/Final_Ductal_NC_classMonCD_VP.pdf')
+	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
+dev.off()
+
+tmp$logpval <- -log(tmp$P.Value)
+tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+tmp2 <- tmp2[tmp2$P.Value < 0.05,]
+
+golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1')
+# tmp2[tmp2$gene_name %in% golden_boys,]
+
+
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys,tmp2[1:100, 'gene_name']),]
+data2heat[data2heat > 5] <- 5
+
+ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
+rownames(ann) <- colnames(data2heat)
+Var1        <- c(colors['acinar'], colors['ductal'])
+names(Var1) <- c(levels(ann$Var1))
+anno_colors <- list(Var1 = Var1)
+
+ann <- data.frame(Group = c(G1, G2))
+ann$Group <-  ifelse(ann$Group %in% G1, 'G1', 'G2')
+rownames(ann) <- colnames(data2heat)
+Group         <- c(colors['ductal'], colors['acinar'])
+# names(Group)  <- c(levels(ann$Group))
+names(Group) <- c('G1', 'G2')
+anno_colors   <- list(Group = Group)
+
+pdf('./Plots/Final_Pancreas02_NC_HM.pdf', heigh=12)
+p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as ductal (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
+dev.off()
+
+
+
+
+library(viridis)
+plasma <- viridis(10, direction = 1, option = "C")
+
+names(plotter) <- c('tSNE1', 'tSNE2')
+plotter$predictions <- annotation$labels
+rownames(plotter) <- annotation$cell_names
+plotter$shapes <- ifelse(annotation$predictions == 'Unassigned', 18, 20)
+plotter$KRT19 <- as.numeric(all_data[rownames(all_data) == 'KRT19',])
+
+pdf('./Plots/Final_TSNE_Pancreas02_KRT19.pdf', width=7, height=5)
+ggplot(plotter, aes(x=tSNE1, y=tSNE2, color = KRT19, fill=KRT19, label=predictions)) + 
+geom_point(size = 2, alpha = 1, aes(fill=KRT19)) + 
+scale_shape_identity() + 
+scale_color_viridis(option='plasma') + 
+scale_fill_viridis(option='plasma') + 
+theme_classic() + 
+geom_text()+
+ggtitle('Expression of KRT19') +
+theme(  legend.position="right", 
+		legend.title=element_blank(),
+		axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(), 
+		axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(), 
+		plot.title = element_text(hjust = 0.5)) +
+		guides(colour=F)
+dev.off()
+
