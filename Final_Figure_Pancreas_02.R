@@ -280,7 +280,7 @@ dev.off()
 #   theme_minimal() +
 #   theme(axis.text.x = element_text(size = 12, face = "bold") , legend.position = 'none')
 # dev.off()
-  
+
 
 
 target <- 'ductal'
@@ -511,13 +511,12 @@ plotter$shapes <- ifelse(annotation$predictions == 'Unassigned', 18, 20)
 plotter$KRT19 <- as.numeric(all_data[rownames(all_data) == 'KRT19',])
 
 pdf('./Plots/Final_TSNE_Pancreas02_KRT19.pdf', width=7, height=5)
-ggplot(plotter, aes(x=tSNE1, y=tSNE2, color = KRT19, fill=KRT19, label=predictions)) + 
+ggplot(plotter, aes(x=tSNE1, y=tSNE2, color = KRT19, fill=KRT19)) + 
 geom_point(size = 2, alpha = 1, aes(fill=KRT19)) + 
 scale_shape_identity() + 
 scale_color_viridis(option='plasma') + 
 scale_fill_viridis(option='plasma') + 
 theme_classic() + 
-geom_text()+
 ggtitle('Expression of KRT19') +
 theme(  legend.position="right", 
 		legend.title=element_blank(),
@@ -528,4 +527,5 @@ theme(  legend.position="right",
 		plot.title = element_text(hjust = 0.5)) +
 		guides(colour=F)
 dev.off()
+
 

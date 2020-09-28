@@ -171,11 +171,12 @@ plotter$shapes <- ifelse(annotation$predictions == 'Unassigned', 18, 20)
 
 pdf('./Plots/Final_TSNE_Pancreas01.pdf', width=7, height=5)
 ggplot(plotter, aes(x=tSNE1, y=tSNE2, color = predictions)) + 
-geom_point(size = 2, alpha = 1) + 
+geom_point(size = 1.5, alpha = 0.8) + 
 scale_shape_identity() + 
 scale_color_manual(values = colors) + 
 theme_classic() + 
 theme(  legend.position="top", 
+		legend.text=element_text(size=12, family='Times'),
 		legend.title=element_blank(),
 		axis.text.x=element_blank(),
         axis.ticks.x=element_blank(), 
@@ -272,7 +273,7 @@ names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
 pdf('./Plots/Final_Pancreas01_HM_KRT19.pdf', heigh = 20)
-pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
+pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10)
 dev.off()
 
 # annotation2 <- annotation[, c('labels', 'predictions')]
@@ -348,15 +349,16 @@ tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
 tmp2 <- tmp2[tmp2$P.Value < 0.05,]
 
-golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1')
+golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1', 'CTRC', 'CPA1', 'AMY2A', 'SYCN', 'RBPJL', 'MIST1', 'HNF1B', 'PTF1A', 'CA19.9', 'PARM1', 'GP2', 'CD142', 'RBPJ', 'MYC')
 
 
 # tmp2[tmp2$gene_name %in% golden_boys,]
 #      gene_name      logFC      P.Value   logpval
 # 1022     KRT19 1.770043 1.246525e-21 48.13393
 
+golden_present <- tmp2[tmp2$gene_name %in% golden_boys,'gene_name']
 
-data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys,tmp2[1:100, 'gene_name']),]
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys,tmp2$gene_name),]
 data2heat[data2heat > 5] <- 5
 
 
@@ -375,17 +377,18 @@ names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
 p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
+dev.off()
 
 row_order <- p$tree_row$order
 col_order <- p$tree_col$order
 data2heat <- data2heat[row_order,col_order]
-krtdata <- t(as.data.frame(data2heat[rownames(data2heat) %in% c('KRT19'),]))
-rownames(krtdata) <- 'KRT19'
-data2heat <- data2heat[!rownames(data2heat) %in% c('KRT19'),]
+krtdata <- as.data.frame(data2heat[rownames(data2heat) %in% golden_present,])
+# rownames(krtdata) <- 'KRT19'
+data2heat <- data2heat[!rownames(data2heat) %in% golden_present,]
 data2heat <- rbind(krtdata, data2heat)
 
 pdf('./Plots/Final_Pancreas01RAW_KRT19_HM.pdf')
-pheatmap( data2heat[1:20,], cluster_rows = F, treeheight_row = 0, annotation_col = ann, , clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
+pheatmap( data2heat[1:20,], cluster_rows = F, treeheight_row = 0, annotation_col = ann, , clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10)
 dev.off()
 
 
