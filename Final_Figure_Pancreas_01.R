@@ -623,7 +623,7 @@ Group         <- c(colors['ductal'], colors['acinar'])
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_Pancreas01_NC2_HM.pdf', heigh=15)
+pdf('./Plots/Final_Pancreas01_NC_HM.pdf', heigh=15)
 p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as ductal (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
 dev.off()
 

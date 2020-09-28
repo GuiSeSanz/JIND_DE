@@ -174,14 +174,14 @@ plotter$predictions <- annotation$labels
 rownames(plotter) <- annotation$cell_names
 plotter$shapes <- ifelse(annotation$predictions == 'Unassigned', 18, 20)
 
-pdf('./Plots/Final_TSNE_PBMC.pdf', width=7, height=5)
+pdf('./Plots/Final_TSNE_PBMC.pdf', width=9, height=5)
 ggplot(plotter, aes(x=tSNE1, y=tSNE2, color = predictions)) + 
 geom_point(size = 1.5, alpha = 0.8) + 
 scale_shape_identity() + 
 scale_color_manual(values = colors) + 
 theme_classic() + 
 theme(  legend.position="top", 
-		legend.text=element_text(size=12, family='Times'),
+		legend.text=element_text(size=20, family='Times'),
 		legend.title=element_blank(),
 		axis.text.x=element_blank(),
         axis.ticks.x=element_blank(), 
@@ -433,8 +433,8 @@ Group         <- c(colors['Monocyte_FCGR3A'], colors['Monocyte_CD14'])
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_PBMC_NC2_HM.pdf', heigh=15)
-p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as ductal (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
+pdf('./Plots/Final_PBMC_NC_HM.pdf', heigh=15)
+p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as Monocyte_FCGR3A (G1)\n and ductal classified as Monocyte_FCGR3A (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
 dev.off()
 
 
