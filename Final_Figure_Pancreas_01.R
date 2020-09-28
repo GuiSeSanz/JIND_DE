@@ -176,7 +176,7 @@ scale_shape_identity() +
 scale_color_manual(values = colors) + 
 theme_classic() + 
 theme(  legend.position="top", 
-		legend.text=element_text(size=12, family='Times'),
+		legend.text=element_text(size=20, family='Times'),
 		legend.title=element_blank(),
 		axis.text.x=element_blank(),
         axis.ticks.x=element_blank(), 
