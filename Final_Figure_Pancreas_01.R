@@ -604,9 +604,9 @@ tmp2 <- tmp2[tmp2$P.Value < 0.05,]
 
 golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1')
 # tmp2[tmp2$gene_name %in% golden_boys,]
+# <0 rows> (or 0-length row.names)
 
-
-data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys,tmp2[1:100, 'gene_name']),]
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(tmp2[1:100, 'gene_name']),]
 data2heat[data2heat > 5] <- 5
 
 ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
@@ -623,7 +623,7 @@ Group         <- c(colors['ductal'], colors['acinar'])
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_Pancreas01_NC_HM.pdf', heigh=15)
+pdf('./Plots/Final_Pancreas01_NC2_HM.pdf', heigh=15)
 p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as ductal (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
 dev.off()
 

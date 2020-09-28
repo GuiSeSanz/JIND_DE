@@ -350,3 +350,92 @@ pdf('./Plots/Final_PBMC_RAW_HM.pdf')
 pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Monocyte_FCGR3A classified as:\nMonocyte_FCGR3A (G1) or Monocyte_CD14 (G2)', fontsize = 8,fontsize_row=10 , family='times')
 dev.off()
 
+
+
+
+
+
+
+
+#########################
+# NEGATIVE CONTROL
+#########################
+
+
+
+target <- 'Monocyte_FCGR3A'
+obj    <- 'Monocyte_CD14'
+
+G1 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+G2 <- sample(G1, round(length(G1)/2))
+G1 <- setdiff(G1, G2)
+
+selection <- c(G1, G2)
+
+data_tmp <- all_data[ , colnames(all_data) %in%  selection]
+
+DESIGN <- data.frame(cells = colnames(data_tmp))
+labels <- c()
+for (cell in DESIGN$cells){
+    ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
+}
+DESIGN$labels <- labels
+
+design_tmp <- as.matrix(DESIGN[, 'labels'])
+design_tmp[design_tmp != 'G1'] <-1
+design_tmp[design_tmp == 'G1'] <-0
+design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+colnames(design_tmp) <- c('G1', 'G2')
+rownames(design_tmp) <- colnames(data_tmp)
+
+
+### DE
+# create the linear model
+fit_tmp <- lmFit(data_tmp, design_tmp)
+# model correction
+fit_tmp <- eBayes(fit_tmp)
+# results <- topTable(fit_tmp, n=Inf)
+x <- paste0('G1', '-', 'G2')
+contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
+fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+fit2_tmp <- eBayes(fit2_tmp)
+tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+tmp$gene_name <- rownames(tmp)
+tmp <- merge(tmp, gencode22, by= 'gene_name')
+
+
+
+tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+
+pdf('./Plots/Final_PBMC_NC_classMonCD_VP.pdf')
+	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
+dev.off()
+
+tmp$logpval <- -log(tmp$P.Value)
+tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+tmp2 <- tmp2[tmp2$P.Value < 0.05,]
+
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(tmp2[1:100, 'gene_name']),]
+data2heat[data2heat > 5] <- 5
+
+ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
+rownames(ann) <- colnames(data2heat)
+Var1        <- c(colors['Monocyte_FCGR3A'], colors['Monocyte_CD14'])
+names(Var1) <- c(levels(ann$Var1))
+anno_colors <- list(Var1 = Var1)
+
+ann <- data.frame(Group = c(G1, G2))
+ann$Group <-  ifelse(ann$Group %in% G1, 'G1', 'G2')
+rownames(ann) <- colnames(data2heat)
+Group         <- c(colors['Monocyte_FCGR3A'], colors['Monocyte_CD14'])
+# names(Group)  <- c(levels(ann$Group))
+names(Group) <- c('G1', 'G2')
+anno_colors   <- list(Group = Group)
+
+pdf('./Plots/Final_PBMC_NC2_HM.pdf', heigh=15)
+p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as ductal (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
+dev.off()
+
+
+
