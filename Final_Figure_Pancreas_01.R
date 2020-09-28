@@ -347,7 +347,7 @@ dev.off()
 
 tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
-tmp2 <- tmp2[tmp2$P.Value < 0.05,]
+tmp2 <- tmp2[tmp2$P.Value < 0.001,]
 
 golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1', 'CTRC', 'CPA1', 'AMY2A', 'SYCN', 'RBPJL', 'MIST1', 'HNF1B', 'PTF1A', 'CA19.9', 'PARM1', 'GP2', 'CD142', 'RBPJ', 'MYC')
 

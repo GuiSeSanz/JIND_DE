@@ -332,6 +332,7 @@ tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
 
 tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+tmp2 <- tmp2[tmp2$P.Value < 0.001,]
 
 
 data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2[1:20, 'gene_name'],]
