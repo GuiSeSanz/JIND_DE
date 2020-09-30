@@ -13,6 +13,7 @@ library(lattice)
 library(latticeExtra)
 library(grid)
 library(Rtsne)
+library(xlsx)
 
 
 
@@ -137,7 +138,23 @@ annotation$predictions <- gsub(' ', '_', annotation$predictions)
 annotation$raw_predictions <- gsub(' ', '_', annotation$raw_predictions)
 
 
+# QC
 
+
+pdf(file="./Plots/QC_Pancreas_Bxplt.pdf", width = 40, height = 20)
+boxplot(all_data[,1:100], names = colnames(all_data)[1:100],cex.axis=0.7, las=2)
+dev.off()
+
+xlim_r = c(min(na.omit(all_data)),max(na.omit(all_data)))
+
+pdf(file="./Plots/QC_Pancreas_Multi.pdf", width = 40, height = 20)
+multi("density", all_data, xlim_r, "Density","","")
+dev.off()
+
+clust.euclid.average <- hclust(dist(t(all_data)),method="average")
+pdf("./Plots/QC_Pancreas_clust.pdf", width = 40, height = 20)
+plot(clust.euclid.average, main="Hierarchical clustering of normalized samples",  hang=-1)
+dev.off()
 
 
 #######
@@ -349,12 +366,17 @@ tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
 tmp2 <- tmp2[tmp2$P.Value < 0.001,]
 
+
+write.xlsx(tmp2, file="/home/sevastopol/data/gserranos/JIND_DE/Plots/Plots4Mohit/Pancreas_DE_analysis.xlsx" , sheetName='Ductal_Vs_Acinar_0.001', row.names = FALSE, append=TRUE)
+
+
 golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1', 'CTRC', 'CPA1', 'AMY2A', 'SYCN', 'RBPJL', 'MIST1', 'HNF1B', 'PTF1A', 'CA19.9', 'PARM1', 'GP2', 'CD142', 'RBPJ', 'MYC')
 
 
 # tmp2[tmp2$gene_name %in% golden_boys,]
 #      gene_name      logFC      P.Value   logpval
-# 1022     KRT19 1.770043 1.246525e-21 48.13393
+# 1022     KRT19  1.7700430 1.246525e-21 48.13393
+# 458       CTRC -0.3287271 1.431963e-10 22.66680
 
 golden_present <- tmp2[tmp2$gene_name %in% golden_boys,'gene_name']
 
@@ -391,6 +413,14 @@ pdf('./Plots/Final_Pancreas01RAW_KRT19_HM.pdf')
 pheatmap( data2heat[1:20,], cluster_rows = F, treeheight_row = 0, annotation_col = ann, , clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10)
 dev.off()
 
+
+
+data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2$gene_name,]
+data2heat[data2heat > 5] <- 5
+
+pdf('./Plots/Final_Pancreas01_RAW_KRT19_SuppDataHM.pdf', heigh=32)
+pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 5,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 6,fontsize_row=5 , family='times')
+dev.off()
 
 
 # TSNE LOOP
@@ -461,84 +491,84 @@ table(c(acinar_Top_DE, duct_Top_DE) %in% tmp2$gene_name)
 
 
 
-target <- 'ductal'
-obj    <- 'acinar'
+# target <- 'ductal'
+# obj    <- 'acinar'
 
-G1 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
-G2 <- annotation[annotation$labels == target & annotation$raw_prediction == obj, 'cell_names']
+# G1 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+# G2 <- annotation[annotation$labels == target & annotation$raw_prediction == obj, 'cell_names']
 
-selection <- c(G1, G2)
+# selection <- c(G1, G2)
 
-data_tmp <- all_data[ , colnames(all_data) %in%  selection]
+# data_tmp <- all_data[ , colnames(all_data) %in%  selection]
 
-DESIGN <- data.frame(cells = colnames(data_tmp))
-labels <- c()
-for (cell in DESIGN$cells){
-    ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
-}
-DESIGN$labels <- labels
+# DESIGN <- data.frame(cells = colnames(data_tmp))
+# labels <- c()
+# for (cell in DESIGN$cells){
+#     ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
+# }
+# DESIGN$labels <- labels
 
-design_tmp <- as.matrix(DESIGN[, 'labels'])
-design_tmp[design_tmp != 'G1'] <-1
-design_tmp[design_tmp == 'G1'] <-0
-design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
-colnames(design_tmp) <- c('G1', 'G2')
-rownames(design_tmp) <- colnames(data_tmp)
-
-
-### DE
-# create the linear model
-fit_tmp <- lmFit(data_tmp, design_tmp)
-# model correction
-fit_tmp <- eBayes(fit_tmp)
-# results <- topTable(fit_tmp, n=Inf)
-x <- paste0('G1', '-', 'G2')
-contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
-fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
-fit2_tmp <- eBayes(fit2_tmp)
-tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
-tmp$gene_name <- rownames(tmp)
-tmp <- merge(tmp, gencode22, by= 'gene_name')
+# design_tmp <- as.matrix(DESIGN[, 'labels'])
+# design_tmp[design_tmp != 'G1'] <-1
+# design_tmp[design_tmp == 'G1'] <-0
+# design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+# colnames(design_tmp) <- c('G1', 'G2')
+# rownames(design_tmp) <- colnames(data_tmp)
 
 
-
-tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
-tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
-
-pdf('./Plots/Final_AcinarVsDuctal_classMonCD_VP.pdf')
-	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
-dev.off()
-
-tmp$logpval <- -log(tmp$P.Value)
-tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+# ### DE
+# # create the linear model
+# fit_tmp <- lmFit(data_tmp, design_tmp)
+# # model correction
+# fit_tmp <- eBayes(fit_tmp)
+# # results <- topTable(fit_tmp, n=Inf)
+# x <- paste0('G1', '-', 'G2')
+# contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
+# fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+# fit2_tmp <- eBayes(fit2_tmp)
+# tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+# tmp$gene_name <- rownames(tmp)
+# tmp <- merge(tmp, gencode22, by= 'gene_name')
 
 
 
-data2heat <- data_tmp[rownames(data_tmp) %in%  c(acinar_Top_DE, duct_Top_DE),]
-data2heat[data2heat > 5] <- 5
+# tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+# tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
 
-ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
-rownames(ann) <- colnames(data2heat)
-Var1        <- c(colors['acinar'], colors['ductal'])
-names(Var1) <- c(levels(ann$Var1))
-anno_colors <- list(Var1 = Var1)
+# pdf('./Plots/Final_AcinarVsDuctal_classMonCD_VP.pdf')
+# 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
+# dev.off()
 
-ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
-ann$Group <-  ifelse(ann$Group == 'ductal', 'G1', 'G2')
-rownames(ann) <- colnames(data2heat)
-Group         <- c(colors['ductal'], colors['acinar'])
-# names(Group)  <- c(levels(ann$Group))
-names(Group) <- c('G1', 'G2')
-anno_colors   <- list(Group = Group, Marquer=c(colors['ductal'], colors['acinar']))
+# tmp$logpval <- -log(tmp$P.Value)
+# tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
 
-ann_row <- data.frame(gene=rownames(data_tmp)[rownames(data_tmp) %in%  c(acinar_Top_DE, duct_Top_DE)])
-ann_row$Marquer <- ifelse(ann_row$gene %in% acinar_Top_DE, 'acinar', 'ductal')
-rownames(ann_row) <- ann_row$gene
-ann_row$gene <- NULL
 
-pdf('./Plots/TEST_Pancreas01RAW_HM.pdf', heigh = 30)
-pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, annotation_row = ann_row, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
-dev.off()
+
+# data2heat <- data_tmp[rownames(data_tmp) %in%  c(acinar_Top_DE, duct_Top_DE),]
+# data2heat[data2heat > 5] <- 5
+
+# ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
+# rownames(ann) <- colnames(data2heat)
+# Var1        <- c(colors['acinar'], colors['ductal'])
+# names(Var1) <- c(levels(ann$Var1))
+# anno_colors <- list(Var1 = Var1)
+
+# ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
+# ann$Group <-  ifelse(ann$Group == 'ductal', 'G1', 'G2')
+# rownames(ann) <- colnames(data2heat)
+# Group         <- c(colors['ductal'], colors['acinar'])
+# # names(Group)  <- c(levels(ann$Group))
+# names(Group) <- c('G1', 'G2')
+# anno_colors   <- list(Group = Group, Marquer=c(colors['ductal'], colors['acinar']))
+
+# ann_row <- data.frame(gene=rownames(data_tmp)[rownames(data_tmp) %in%  c(acinar_Top_DE, duct_Top_DE)])
+# ann_row$Marquer <- ifelse(ann_row$gene %in% acinar_Top_DE, 'acinar', 'ductal')
+# rownames(ann_row) <- ann_row$gene
+# ann_row$gene <- NULL
+
+# pdf('./Plots/TEST_Pancreas01RAW_HM.pdf', heigh = 30)
+# pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, annotation_row = ann_row, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as acinar (G2)', fontsize = 8,fontsize_row=10)
+# dev.off()
 
 
 
@@ -602,11 +632,13 @@ tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
 tmp2 <- tmp2[tmp2$P.Value < 0.05,]
 
+write.xlsx(tmp2, file="/home/sevastopol/data/gserranos/JIND_DE/Plots/Plots4Mohit/Pancreas_DE_analysis_NegC.xlsx" , sheetName='Ductal_Vs_Ductal_0.05', row.names = FALSE, append=TRUE)
+
 golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1')
 # tmp2[tmp2$gene_name %in% golden_boys,]
 # <0 rows> (or 0-length row.names)
 
-data2heat <- data_tmp[rownames(data_tmp) %in%  c(tmp2[1:100, 'gene_name']),]
+data2heat <- data_tmp[rownames(data_tmp) %in% tmp2$gene_name, ]
 data2heat[data2heat > 5] <- 5
 
 ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
@@ -624,7 +656,7 @@ names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
 pdf('./Plots/Final_Pancreas01_NC_HM.pdf', heigh=15)
-p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and ductal classified as ductal (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
+p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as ductal (G1)\n and  ductal (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
 dev.off()
 
 
