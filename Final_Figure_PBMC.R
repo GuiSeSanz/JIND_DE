@@ -152,7 +152,7 @@ annotation$raw_predictions <- gsub(' ', '_', annotation$raw_predictions)
 # "Monocyte_FCGR3A" = '#bf7336',
 # "Megakaryocyte" = '#5b94df',
 # "Hematopoietic_stem_cell"    = '#b13e55',
-# "Missclassification" = '#ea5148'
+# "Misclassification" = '#ea5148'
 # )
 
 colors = c(
@@ -348,7 +348,7 @@ Group         <- c(colors['Monocyte_FCGR3A'], colors['Monocyte_CD14'])
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_PBMC_RAW_HM.pdf')
+pdf('./Plots/Plots4Mohit/Final_PBMC_RAW_HM.pdf')
 pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Monocyte_FCGR3A classified as:\nMonocyte_FCGR3A (G1) or Monocyte_CD14 (G2)', fontsize = 8,fontsize_row=10 , family='times')
 dev.off()
 
@@ -358,7 +358,7 @@ dev.off()
 data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2$gene_name,]
 data2heat[data2heat > 5] <- 5
 
-pdf('./Plots/Final_PBMC_RAW_SuppDataHM.pdf', heigh=12)
+pdf('./Plots/Plots4Mohit/Final_PBMC_RAW_SuppDataHM.pdf', heigh=12)
 pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 5,annotation_colors = anno_colors, show_colnames = F, main = 'Monocyte_FCGR3A classified as:\nMonocyte_FCGR3A (G1) or Monocyte_CD14 (G2)', fontsize = 6,fontsize_row=5 , family='times')
 dev.off()
 
@@ -428,7 +428,7 @@ tmp2 <- tmp2[tmp2$P.Value < 0.05,]
 write.xlsx(tmp2, file="/home/sevastopol/data/gserranos/JIND_DE/Plots/Plots4Mohit/PBMC_DE_analysis_NegC.xlsx" , sheetName='MONC_FC_Vs_MONC_FC_0.05', row.names = FALSE, append=TRUE)
 
 
-data2heat <- data_tmp[rownames(data_tmp) %in%  c(tmp2[1:100, 'gene_name']),]
+data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2$gene_name,]
 data2heat[data2heat > 5] <- 5
 
 ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
@@ -445,7 +445,7 @@ Group         <- c(colors['Monocyte_FCGR3A'], colors['Monocyte_CD14'])
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_PBMC_NC_HM.pdf')
+pdf('./Plots/Plots4Mohit/Final_PBMC_NC_HM.pdf')
 p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between ductal classified as Monocyte_FCGR3A (G1)\n  Monocyte_FCGR3A (G2) \nNEGATIVE CONTROL', fontsize = 8,fontsize_row=10)
 dev.off()
 
