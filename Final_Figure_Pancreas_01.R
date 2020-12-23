@@ -403,23 +403,34 @@ dev.off()
 
 row_order <- p$tree_row$order
 col_order <- p$tree_col$order
+col_order_clust <- p$tree_col
 data2heat <- data2heat[row_order,col_order]
 krtdata <- as.data.frame(data2heat[rownames(data2heat) %in% golden_present,])
 # rownames(krtdata) <- 'KRT19'
 data2heat <- data2heat[!rownames(data2heat) %in% golden_present,]
 data2heat <- rbind(krtdata, data2heat)
 
+p<- pheatmap( data2heat[1:20,], cluster_rows = F, treeheight_row = 0, annotation_col = ann, , clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10) 
+dev.off()
 pdf('./Plots/Final_Pancreas01RAW_KRT19_HM.pdf')
 pheatmap( data2heat[1:20,], cluster_rows = F, treeheight_row = 0, annotation_col = ann, , clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10)
 dev.off()
 
+col_order <- p$tree_col$order
+col_order_clust <- p$tree_col
 
-
-data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2$gene_name,]
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys,tmp2$gene_name),]
 data2heat[data2heat > 5] <- 5
 
-pdf('./Plots/Final_Pancreas01_RAW_KRT19_SuppDataHM.pdf', heigh=32)
-pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 5,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 6,fontsize_row=5 , family='times')
+col_order_clust <- p$tree_col
+
+pdf('./Plots/Final_Pancreas01_RAW_KRT19_SuppDataHM_1.pdf', heigh=18)
+pheatmap( data2heat[1:223,], cluster_rows = T, cluster_cols=col_order_clust,  treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", cellheight= 5,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 6,fontsize_row=5 , family='times')
+dev.off()
+
+
+pdf('./Plots/Final_Pancreas01_RAW_KRT19_SuppDataHM_2.pdf', heigh=18)
+pheatmap( data2heat[224:446,], cluster_rows = T, cluster_cols=col_order_clust,  treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", cellheight= 5,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 6,fontsize_row=5 , family='times')
 dev.off()
 
 

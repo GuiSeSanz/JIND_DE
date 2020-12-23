@@ -115,9 +115,9 @@ gencode22$gene_id <- str_extract(gencode22$gene_id, 'ENSG[R]?[0-9]+')
 
 
 pd <- import("pandas")
-df <- pd$read_pickle('test.pkl')
+df <- pd$read_pickle('/home/sevastopol/data/gserranos/JIND_DE/Data/PBMC/test.pkl')
 
-annotation <- pd$read_pickle('JIND_assignmentbrftune.pkl')
+annotation <- pd$read_pickle('/home/sevastopol/data/gserranos/JIND_DE/Data/PBMC/JIND_assignmentbrftune.pkl')
 annotation$cell_names <- rownames(annotation)
 
 all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
