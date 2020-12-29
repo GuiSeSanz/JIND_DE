@@ -16,6 +16,7 @@ library(Rtsne)
 library(xlsx)
 library(gridExtra)
 library(dendsort)
+library(viridis)
 
 
 "graphContrast" <- function(data, name, Bth, FCth, namecol) {
@@ -117,11 +118,7 @@ for (dataSet in DATASETS){
 }
 
 
-dataSet <- 'PBMC'
-target <- 'Monocyte_FCGR3A'
-obj    <- 'Monocyte_CD14'
-
-DE_with_TSNE <- function(dataset, target, obj){
+DE_with_TSNE <- function(dataSet, target, obj){
 
 	df  <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/test.pkl'))
 
@@ -272,7 +269,7 @@ DE_with_TSNE <- function(dataset, target, obj){
 	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
 	print(HM$tree_col)
 	print(HM)
-	# dev.off()
+	dev.off()
 
 	#############
 	# TSNE
@@ -283,6 +280,7 @@ DE_with_TSNE <- function(dataset, target, obj){
 
 	plotter$labels <- annotation[rownames(annotation) %in% colnames(all_data2), 'labels']
 	plotter$predictions <- annotation[rownames(annotation) %in% colnames(all_data2), 'predictions']
+	plotter$cell_id <- rownames(annotation[rownames(annotation) %in% colnames(all_data2),])
 
 	labels <- data.frame(cell_id = colnames(all_data2) )
 	labels$group <- 'G0'
@@ -315,17 +313,36 @@ DE_with_TSNE <- function(dataset, target, obj){
 	}
 	title <- paste(title, 'Ratio:  Acinar/Ductal', sep='\n')
 
+	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_TSNE_',Sys.Date(),'.pdf'), 15,15)
 	print(ggplot(plotter, aes(x=V1, y=V2, color = shape, label = labels)) + theme_bw() + geom_text()  +scale_color_manual(values = anno_colors$Shape) + ggtitle(title))
 	dev.off()
+
+	probs <- data.frame(cell_id = NULL, prob = NULL)
+	for (cell_name in plotter$cell_id){
+		tmp <- data.frame(cell_id = cell_name, prob = annotation[annotation$cell_names == cell_name, plotter[plotter$cell_id == cell_name,'labels']])
+		probs <- rbind(probs,tmp)
+	}
+
+	plotter <- merge(plotter, probs, by='cell_id')
+
+	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_TSNE_probs_',Sys.Date(),'.pdf'), 15,15)
+	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = labels)) + theme_bw() + geom_text()  +   scale_color_viridis(option="plasma"))
+	print(ggplot(plotter, aes(x=V1, y=V2, fill = prob)) + theme_bw() + geom_point(aes(fill=id,colour="black", shape=21, size = 5)  +   scale_fill_viridis(option="inferno"))
+	dev.off()
+
+
 
 }
 
 
+# dataSet <- 'PBMC'
+# target <- 'Monocyte_FCGR3A'
+# obj    <- 'Monocyte_CD14'
 
 
+DE_with_TSNE('Pancreas_01', 'ductal', 'acinar')
 
-
-
+DE_with_TSNE('PBMC', 'Monocyte_FCGR3A', 'Monocyte_CD14')
 
 
 
