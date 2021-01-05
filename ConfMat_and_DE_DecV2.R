@@ -63,14 +63,32 @@ process_CM <- function(data){
 	return(b)
 }
 
+mean_acc <- function(data_mat){
+	return(round(mean(diag(data_mat[!grepl('Unassigned', rownames(data_mat)), ])),3))
+}
+
 pd <- import("pandas")
 
 DATASETS <- list.files('/home/sevastopol/data/gserranos/JIND_DE/Data/')
 
-color_red_green <- colorRampPalette(c('#cc5a4e', '#1dcc4b'))(50)
+
+color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
+color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
+myBreaks <- c(seq(0,  0.4, length.out= 20), seq(0.41, 0.79, length.out=10), seq(0.8, 1, length.out=20))
 for (dataSet in DATASETS){
 	print(dataSet)
-	# df2 <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/train.pkl'))
+	switch(dataSet,
+		HumanDatasetRandom = {
+			dataSet_name = 'Human Hematopoiesis'},
+		Mouse_atlas = {
+			dataSet_name = 'Mouse Atlas'},
+		Pancreas_01 = {
+			dataSet_name = 'Pancreas Bar16-Mur16'},
+		Pancreas_02 = {
+			dataSet_name = 'Pancreas Bar16-Seg16'},
+		PBMC = {
+			dataSet_name = 'PBMC 10x_v3-10x_v5'}
+	)
 
 	annotation <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/JIND_assignmentbrftune.pkl'))
 	annotation$cell_names <- rownames(annotation)
@@ -80,7 +98,9 @@ for (dataSet in DATASETS){
 
 	data <- as.data.frame.matrix(table(annotation$raw_predictions, annotation$labels))
 	b <- process_CM(data)
-	jind_raw <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#61312c', main=paste0('JIND_RAW_', dataSet), legend=F)
+	b[is.na(b)] <- 0
+
+	jind_raw <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('JIND raw ', dataSet_name, ' mean accuracy: ', mean_acc(b)), legend=F, breaks = myBreaks, fontsize = 7)
 	file_xlsx <- paste0('/home/sevastopol/data/gserranos/JIND_DE/Plots/',dataSet,'_CM.xlsx' )
 	if (file.exists(file_xlsx)) {
   		file.remove(file_xlsx)
@@ -88,40 +108,46 @@ for (dataSet in DATASETS){
 	b[is.na(b)] <-0
 	write.xlsx(b, file=file_xlsx, sheetName='JIND_raw', row.names = TRUE, append=TRUE)
 
-
 	data <- as.data.frame.matrix(table(annotation$predictions, annotation$labels))
 	b <- process_CM(data)
-	jind <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#61312c', main=paste0('JIND_', dataSet), legend=F)
+	b[is.na(b)] <- 0
+
+	jind <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('JIND ', dataSet_name, ' mean accuracy: ', mean_acc(b)), legend=F, breaks = myBreaks, fontsize = 7)
 	b[is.na(b)] <-0
 	write.xlsx(b, file=file_xlsx, sheetName='JIND', row.names = TRUE, append=TRUE)
 
 	data_seurat <- as.data.frame.matrix(table(annotation_seurat$raw_predictions, annotation_seurat$labels))
 	b_seurat <- process_CM(data_seurat)
-	seurat_raw <- pheatmap(b_seurat, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#61312c', main=paste0('SEURAT_RAW_', dataSet), legend=F)
 	b_seurat[is.na(b_seurat)] <-0
-	write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat', row.names = TRUE, append=TRUE)
 
+	seurat_raw <- pheatmap(b_seurat, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('SEURAT ', dataSet_name, ' mean accuracy: ', mean_acc(b_seurat)), legend=T, breaks = myBreaks, fontsize = 7)
+	write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat', row.names = TRUE, append=TRUE)
 
 	data_seurat <- as.data.frame.matrix(table(annotation_seurat$predictions, annotation_seurat$labels))
 	b_seurat <- process_CM(data_seurat)
-	seurat <- pheatmap(b_seurat, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#61312c', main=paste0('SEURAT_', dataSet), legend=T)
 	b_seurat[is.na(b_seurat)] <-0
+
+	seurat <- pheatmap(b_seurat, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('SEURAT rej', dataSet_name, ' mean accuracy: ', mean_acc(b_seurat)), legend=T, breaks = myBreaks, fontsize = 7)
 	write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat_raw', row.names = TRUE, append=TRUE)
 
+	plot_dims <- get_plot_dims(jind)
 
-	plot_dims <- get_plot_dims(seurat)
-	dev.off()
 	pdf(paste0('./Plots/',dataSet,'_CM.pdf'), height = plot_dims$height *2  , width = plot_dims$width*2)
 	grid.arrange(grobs = list(jind_raw[[4]], jind[[4]], seurat_raw[[4]], seurat[[4]]), ncol=2)
+	dev.off()
+	
+	pdf(paste0('./Plots/',dataSet,'_CM_onlySJ.pdf'), height = plot_dims$height *3, width = plot_dims$width + 5)
+	grid.arrange(grobs = list(jind[[4]], jind_raw[[4]], seurat_raw[[4]]), ncol=1, nrow =3)
 	dev.off()
 
 }
 
 
-DE_with_TSNE <- function(dataSet, target, obj){
 
+
+
+DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	df  <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/test.pkl'))
-
 	annotation <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/JIND_assignmentbrftune.pkl'))
 	annotation$cell_names <- rownames(annotation)
 
@@ -225,6 +251,7 @@ DE_with_TSNE <- function(dataSet, target, obj){
 	plot_dims <- get_plot_dims(HM)
 
 	colors = c(
+	"G2"  = rgb(105, 191, 109, max=255),
 	"G2_3"  = rgb(140, 86, 75, max=255), #BROWN
 	"G2_4" = rgb(255, 127, 14, max=255), #ORANGE
 	"G1" =  rgb(214, 38, 40, max=255), #RED
@@ -233,7 +260,7 @@ DE_with_TSNE <- function(dataSet, target, obj){
 	"18_Plasma" = rgb(227, 119, 194, max=255), # PINK
 	"G2" = rgb(148, 103, 189, max=255), #PURPLE
 	"G0" = rgb(127, 127, 127, max=255), #GREY
-	"G2_1"    = rgb(188, 189, 34, max=255)) # LIME
+	"G2_1"  = rgb(188, 189, 34, max=255)) # LIME
 
 	cluster_names <- HM$tree_col$labels
 	cluster_pos <- HM$tree_col$order
@@ -267,10 +294,30 @@ DE_with_TSNE <- function(dataSet, target, obj){
 	plot_dims <- get_plot_dims(HM)
 
 	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
-	print(HM$tree_col)
+	# print(HM$tree_col)
 	print(HM)
 	dev.off()
 
+	##
+	# Plot only the marker genes
+	##
+	if (!is.null(plot_selected_genes)){
+		data2heat2 <- data_tmp[rownames(data_tmp) %in% plot_selected_genes,]
+		ann <- data.frame(cell_id = colnames(data2heat2), Group = annotation[rownames(annotation) %in% colnames(data2heat2), 'predictions'])
+		ann$Group <-  ifelse(ann$Group == target, 'G1', 'G2')
+		ann$cell_id <- NULL
+		rownames(ann) <- colnames(data2heat2)
+		data2heat2 <- data2heat2[,order(-data2heat2[plot_selected_genes[1],])]
+		HM_1 <- pheatmap( data2heat2[plot_selected_genes[1],,drop=F], cluster_rows = F, cluster_cols = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+		data2heat2 <- data2heat2[,order(-data2heat2[plot_selected_genes[2],])]
+		HM_2 <- pheatmap( data2heat2[plot_selected_genes[2],,drop=F], cluster_rows = F, cluster_cols = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+
+		plot_dims <- get_plot_dims(HM_1)
+
+		pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_2genes',Sys.Date(),'.pdf'), height = plot_dims$height*3, width = plot_dims$width)
+		grid.arrange(grobs = list(HM_1[[4]], HM_2[[4]]), nrow=2)
+		dev.off()
+	}
 	#############
 	# TSNE
 	#############
@@ -314,36 +361,190 @@ DE_with_TSNE <- function(dataSet, target, obj){
 	title <- paste(title, 'Ratio:  Acinar/Ductal', sep='\n')
 
 	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_TSNE_',Sys.Date(),'.pdf'), 15,15)
-	print(ggplot(plotter, aes(x=V1, y=V2, color = shape, label = labels)) + theme_bw() + geom_text()  +scale_color_manual(values = anno_colors$Shape) + ggtitle(title))
+	print(ggplot(plotter, aes(x=V1, y=V2, color = shape, label = labels)) + theme_classic() + geom_text()  +scale_color_manual(values = anno_colors$Shape) + ggtitle(title))
+	print(ggplot(plotter, aes(x=V1, y=V2, color = shape)) + theme_classic() + geom_point(alpha = 0.8,size = 8)  +scale_color_manual(values = anno_colors$Shape) + ggtitle(title)  + 
+	theme(axis.title.x=element_blank(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank()) )
 	dev.off()
 
 	probs <- data.frame(cell_id = NULL, prob = NULL)
 	for (cell_name in plotter$cell_id){
-		tmp <- data.frame(cell_id = cell_name, prob = annotation[annotation$cell_names == cell_name, plotter[plotter$cell_id == cell_name,'labels']])
+		tmp <- data.frame(cell_id = cell_name, prob = annotation[annotation$cell_names == cell_name, as.character(annotation[annotation$cell_names == cell_name, 'labels'])])
 		probs <- rbind(probs,tmp)
 	}
 
 	plotter <- merge(plotter, probs, by='cell_id')
+	library(wesanderson)
+	pal <- wes_palette("Zissou1", 100, type = "continuous")
 
 	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_TSNE_probs_',Sys.Date(),'.pdf'), 15,15)
-	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = labels)) + theme_bw() + geom_text()  +   scale_color_viridis(option="plasma"))
-	print(ggplot(plotter, aes(x=V1, y=V2, fill = prob)) + theme_bw() + geom_point(aes(fill=id,colour="black", shape=21, size = 5)  +   scale_fill_viridis(option="inferno"))
+	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = labels)) + theme_bw() + geom_text()  +   scale_color_gradientn(colours = pal))
+	print(ggplot(plotter, aes(x=V1, y=V2, fill = prob)) + theme_bw() + geom_point(aes(fill=prob),colour="black", shape=21, size = 5) +scale_fill_gradientn(colours = pal) )# scale_fill_viridis(option="inferno"))
+	dev.off()
+	return(setNames(list(cluster_list, cluster_names), c('cluster_list', 'cluster_names')))
+}
+
+TSNE_for_all <- function(dataSet){
+
+	df  <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/test.pkl'))
+
+	annotation <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/JIND_assignmentbrftune.pkl'))
+	annotation$cell_names <- rownames(annotation)
+
+	all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
+	tsne_out <- Rtsne(as.matrix(t(all_data)))
+	plotter <-  as.data.frame(tsne_out$Y)
+
+	plotter$labels <- annotation[rownames(annotation) %in% colnames(all_data), 'labels']
+	plotter$predictions <- annotation[rownames(annotation) %in% colnames(all_data), 'predictions']
+	plotter$cell_id <- rownames(annotation[rownames(annotation) %in% colnames(all_data),])
+
+
+	probs <- data.frame(cell_id = NULL, prob = NULL)
+	for (cell_name in plotter$cell_id){
+		tmp <- data.frame(cell_id = cell_name, prob = annotation[annotation$cell_names == cell_name, as.character(annotation[annotation$cell_names == cell_name, 'labels'])])
+		probs <- rbind(probs,tmp)
+	}
+
+	plotter <- merge(plotter, probs, by='cell_id')
+	library(wesanderson)
+	pal <- wes_palette("Zissou1", 100, type = "continuous")
+
+	colors_labels = grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
+	colors_labels_ = sample(colors_labels, length(unique(plotter$labels)))
+	pdf(paste0('./Plots/Dec20/',dataSet,'_TSNE_probs_',Sys.Date(),'.pdf'), 15,15)
+	print(ggplot(plotter, aes(x=V1, y=V2, fill = labels)) + theme_bw() + geom_point(aes(fill=labels) , colour="black", shape=21, size = 5, alpha = 0.7) + scale_fill_manual(values=colors_labels_) )
+	
+	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = labels)) + theme_bw() + geom_text(alpha = 0.6)  +   scale_color_gradientn(colours = pal))
+	
+	print(ggplot(plotter, aes(x=V1, y=V2, fill = prob)) + theme_bw() + geom_point(aes(fill=prob),colour="black", shape=21, size = 5, alpha = 0.6) +scale_fill_gradientn(colours = pal) )
 	dev.off()
 
 
-
 }
-
 
 # dataSet <- 'PBMC'
 # target <- 'Monocyte_FCGR3A'
 # obj    <- 'Monocyte_CD14'
 
 
-DE_with_TSNE('Pancreas_01', 'ductal', 'acinar')
-
-DE_with_TSNE('PBMC', 'Monocyte_FCGR3A', 'Monocyte_CD14')
-
+a = DE_with_TSNE('Pancreas_01', 'ductal', 'acinar')
+DE_with_TSNE('PBMC', 'Monocyte_FCGR3A', 'Monocyte_CD14', c('CD14', 'FCGR3A'))
 
 
 
+TSNE_for_all('PBMC')
+TSNE_for_all('Pancreas_01')
+
+
+
+a$cluster_names[a$cluster_list[[3]]]
+dataSet <- 'Pancreas_01'
+target <- 'acinar'
+obj <- 'custom'
+df  <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/test.pkl'))
+	annotation <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/JIND_assignmentbrftune.pkl'))
+	annotation$cell_names <- rownames(annotation)
+
+	all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
+	# all_data2 <- t(df2[, -which(colnames(df2) %in% c('labels'))])
+	var_5k=FALSE
+	if (var_5k==TRUE & !dataSet %in% c('PBMC', 'Pancreas_01', 'Pancreas_02')){
+		var_ <- apply(all_data, 1, var)
+		names(var_) <- rownames(all_data)
+		genes_2_keep <- names(sort(var_, decreasing=T)[1:5000])
+		all_data <- all_data[rownames(all_data) %in% genes_2_keep, ]
+	}
+
+	stand_dev <- apply(all_data,1, sd)
+	all_data <- all_data[!rownames(all_data) %in% names(which(stand_dev ==0)), ]
+
+	# tsne_out <- Rtsne(as.matrix(t(all_data)))
+	# plotter <-  as.data.frame(tsne_out$Y)
+
+	annotation$labels <- gsub(' ', '_', annotation$labels)
+	annotation$predictions <- gsub(' ', '_', annotation$predictions)
+	annotation$raw_predictions <- gsub(' ', '_', annotation$raw_predictions)
+
+	G1 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+	G2 <- a$cluster_names[a$cluster_list[[3]]]
+
+	selection <- c(G1, G2)
+
+	data_tmp <- all_data[ , colnames(all_data) %in%  selection]
+	stand_dev <- apply(data_tmp,1, sd)
+	data_tmp <- data_tmp[!rownames(data_tmp) %in% names(which(stand_dev ==0)), ]
+
+	DESIGN <- data.frame(cells = colnames(data_tmp))
+	labels <- c()
+	for (cell in DESIGN$cells){
+		ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
+	}
+	DESIGN$labels <- labels
+
+	design_tmp <- as.matrix(DESIGN[, 'labels'])
+	design_tmp[design_tmp != 'G1'] <-1
+	design_tmp[design_tmp == 'G1'] <-0
+	design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+	colnames(design_tmp) <- c('G1', 'G2')
+	rownames(design_tmp) <- colnames(data_tmp)
+
+
+	### DE
+	# create the linear model
+	fit_tmp <- lmFit(data_tmp, design_tmp)
+	# model correction
+	fit_tmp <- eBayes(fit_tmp)
+	# results <- topTable(fit_tmp, n=Inf)
+	x <- paste0('G1', '-', 'G2')
+	contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
+	fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+	fit2_tmp <- eBayes(fit2_tmp)
+	tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+	tmp$gene_name <- rownames(tmp)
+	tmp <- merge(tmp, gencode22, by= 'gene_name')
+
+
+
+	tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+	tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+
+	# pdf('./Plots/12_CD14.Mono.2_VP.pdf')
+	# 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
+	# dev.off()
+
+	tmp$logpval <- -log(tmp$P.Value)
+	tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+
+
+	data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05,'gene_name'],]
+
+	colors = c(
+	"G2"  = rgb(105, 191, 109, max=255),
+	"G2_3"  = rgb(140, 86, 75, max=255), #BROWN
+	"G2_4" = rgb(255, 127, 14, max=255), #ORANGE
+	"G1" =  rgb(214, 38, 40, max=255), #RED
+	"G2_5" =rgb(44, 160, 44, max=255), #GREEN
+	"G2_2" = rgb(31, 119, 180, max=255), #BLUE
+	"18_Plasma" = rgb(227, 119, 194, max=255), # PINK
+	"G2" = rgb(148, 103, 189, max=255), #PURPLE
+	"G0" = rgb(127, 127, 127, max=255), #GREY
+	"G2_1"  = rgb(188, 189, 34, max=255)) # LIME
+
+	ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
+	ann$Group <-  ifelse(ann$Group == target, 'G1', 'G2')
+	rownames(ann) <- colnames(data2heat)
+	Group         <- c(colors['G1'], colors['G2'])
+	# names(Group)  <- c(levels(ann$Group))
+	names(Group) <- c('G1', 'G2')
+	anno_colors   <- list(Group = Group)
+
+	HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+
+	plot_dims <- get_plot_dims(HM)
+
+	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
+	# print(HM$tree_col)
+	print(HM)
+	dev.off()

@@ -246,9 +246,9 @@ dev.off()
 tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
 
-
-data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2[1:20, 'gene_name'],]
+data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2[1:30, 'gene_name'],]
 data2heat[data2heat > 5] <- 5
+tmp2 <- tmp2[tmp2$P.Value < 0.001,]
 
 ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
 ann$Group <-  ifelse(ann$Group == 'Monocyte_FCGR3A', 'G1', 'G2')
@@ -258,8 +258,8 @@ Group         <- c(colors['Monocyte_FCGR3A'], colors['Monocyte_CD14'])
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_PBMC_HM.pdf')
-pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between Monocyte_FCGR3A classified as Monocyte_FCGR3A (G1)\n and Monocyte_FCGR3A classified as Monocyte_CD14 (G2)', fontsize = 8,fontsize_row=10)
+pdf('./Plots/Final_PBMC_HM_2020.pdf', heigh = 20)
+pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Heatmap between Monocyte_FCGR3A classified as Monocyte_FCGR3A (G1)\n and Monocyte_FCGR3A classified as Monocyte_CD14 (G2)', fontsize = 8,fontsize_row=10,)
 dev.off()
 
 

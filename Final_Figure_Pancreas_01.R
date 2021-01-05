@@ -1,3 +1,4 @@
+
 library(SummarizedExperiment)
 library(stringr)
 library(reticulate)
@@ -258,7 +259,7 @@ tmp$logpval <- -log(tmp$P.Value)
 tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
 tmp2 <- tmp2[tmp2$P.Value < 0.05,]
 
-golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1')
+golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1', 'CTRC')
 
 
 # tmp2[tmp2$gene_name %in% golden_boys,]
@@ -272,7 +273,8 @@ data2heat[data2heat > 5] <- 5
 
 
 
-data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys[1],tmp2[1:100, 'gene_name']),]
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(golden_boys,tmp2[1:100, 'gene_name']),]
+data2heat[data2heat > 5] <- 5
 
 
 ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
@@ -285,13 +287,45 @@ ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2hea
 ann$Group <-  ifelse(ann$Group == 'ductal', 'G1', 'G2')
 rownames(ann) <- colnames(data2heat)
 Group         <- c(colors['ductal'], colors['acinar'])
-# names(Group)  <- c(levels(ann$Group))
+names(Group)  <- c(levels(ann$Group))
 names(Group) <- c('G1', 'G2')
 anno_colors   <- list(Group = Group)
 
-pdf('./Plots/Final_Pancreas01_HM_KRT19.pdf', heigh = 20)
-pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10)
+
+
+library(dendsort)
+callback = function(hc, mat)
+{
+dendsort(hc, isReverse=T)
+
+}
+
+pdf('./Plots/Final_Pancreas01_HM_KRT19_2020.pdf', heigh = 20)
+pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10, clustering_callback = callback)
 dev.off()
+
+
+Pancreas_gene_mark <- read.table('/home/sevastopol/data/gserranos/JIND_DE/Data/Pancreas_01/PanglaoDB_markers_27_Mar_2020.tsv', sep='\t', header = T)
+acinar_GM <- tmp2$gene_name[which(tmp2$gene_name %in% Pancreas_gene_mark[Pancreas_gene_mark$cell.type == 'Acinar cells', 'official.gene.symbol'])]
+ductal_GM <- tmp2$gene_name[which(tmp2$gene_name %in% Pancreas_gene_mark[Pancreas_gene_mark$cell.type == 'Ductal cells', 'official.gene.symbol'])]
+
+
+data2heat <- data_tmp[rownames(data_tmp) %in%  c(acinar_GM, ductal_GM),]
+data2heat[data2heat > 5] <- 5
+
+ann_GM <- data.frame(GM = rownames(data2heat))
+rownames(ann_GM) <- ann_GM$GM
+ann_GM$GM <-  ifelse(ann_GM$GM %in% acinar_GM, 'Acinar', 'Ductal')
+GM         <- c('#946ec6','#c57a3e')
+# names(Group)  <- c(levels(ann$Group))
+names(GM) <- c('Acinar', 'Ductal')
+anno_colors   <- list(Group = Group, GM =GM)
+
+
+pdf('./Plots/Final_Pancreas01_HM_2020_GM.pdf', heigh = 20)
+pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, annotation_row = ann_GM, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = 'Ductal classified as:\nDuctal (G1) or Acinar (G2)', fontsize = 8,fontsize_row=10, clustering_callback = callback)
+dev.off()
+
 
 # annotation2 <- annotation[, c('labels', 'predictions')]
 # annotation3 <- melt(annotation2)
