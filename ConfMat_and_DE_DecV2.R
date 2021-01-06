@@ -207,7 +207,7 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	fit2_tmp <- eBayes(fit2_tmp)
 	tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
 	tmp$gene_name <- rownames(tmp)
-	tmp <- merge(tmp, gencode22, by= 'gene_name')
+	# tmp <- merge(tmp, gencode22, by= 'gene_name')
 
 
 
@@ -226,42 +226,31 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	# data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05 & abs(tmp$logFC)>0.5,'gene_name'],]
 	data2heat[data2heat > 5] <- 5
 
-	colors = c(
-	"acinar"  = rgb(140, 86, 75, max=255), #BROWN
-	"endothelial" = rgb(255, 127, 14, max=255), #ORANGE
-	"Monocyte_FCGR3A" =  rgb(214, 39, 40, max=255), #RED
-	"ductal" =rgb(44, 160, 44, max=255), #GREEN
-	"CD4_T_cell" = rgb(31, 119, 180, max=255), #BLUE
-	"18_Plasma" = rgb(227, 119, 194, max=255), # PINK
-	"Monocyte_CD14" = rgb(148, 103, 189, max=255), #PURPLE
-	"Megakaryocyte" = rgb(127, 127, 127, max=255), #GREY
-	"Unassigned"    = rgb(188, 189, 34, max=255)) # LIME
+	colors_MG = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
+				rgb(44, 160, 44, max = 255), rgb(214, 39, 40, max =255),
+				rgb(148, 103, 189, max = 255), rgb(140, 86, 75, max =255),
+				rgb(227, 119, 194, max = 255), rgb(127, 127, 127, max =255),
+				rgb(188, 189, 34, max = 255), rgb(23, 190, 207, max =255))
+
 
 	ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
 	ann$Group <-  ifelse(ann$Group == target, 'G1', 'G2')
 	rownames(ann) <- colnames(data2heat)
 	Group         <- c(colors[target], colors[obj])
+	###
+	Group <- colors_MG
+	names(Group) <-names(sort(table(as.character(annotation$labels) ), decreasing=T))
 	# names(Group)  <- c(levels(ann$Group))
 	names(Group) <- c('G1', 'G2')
 	anno_colors   <- list(Group = Group)
-
+	
 
 	HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
 
 	plot_dims <- get_plot_dims(HM)
 
-	colors = c(
-	"G2"  = rgb(105, 191, 109, max=255),
-	"G2_3"  = rgb(140, 86, 75, max=255), #BROWN
-	"G2_4" = rgb(255, 127, 14, max=255), #ORANGE
-	"G1" =  rgb(214, 38, 40, max=255), #RED
-	"G2_5" =rgb(44, 160, 44, max=255), #GREEN
-	"G2_2" = rgb(31, 119, 180, max=255), #BLUE
-	"18_Plasma" = rgb(227, 119, 194, max=255), # PINK
-	"G2" = rgb(148, 103, 189, max=255), #PURPLE
-	"G0" = rgb(127, 127, 127, max=255), #GREY
-	"G2_1"  = rgb(188, 189, 34, max=255)) # LIME
 
+	
 	cluster_names <- HM$tree_col$labels
 	cluster_pos <- HM$tree_col$order
 
@@ -279,24 +268,52 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	ann$Group <-  ifelse(ann$Group == target, 'G1', 'G2')
 	ann <- merge(ann, shape, by='cell_id')
 	ann$cell_id <- NULL
+	names(ann) <- c('Group', 'Cluster')
 	rownames(ann) <- colnames(data2heat)
-	Group         <- c(colors[unique(ann$Group)])
-	Shape         <- c(colors[unique(ann$Shape)])
+	Group         <- c(colors_main[target], colors_main[obj])
+	
+	Cluster         <- colors_MG[which(!colors_MG %in% c(colors_main[target], colors_main[obj]))][1:counter]
 	# names(Group)  <- c(levels(ann$Group))
 	names(Group) <- c(unique(ann$Group))
-	names(Shape) <- c(unique(ann$Shape))
-	Shape <- setNames(c(Shape, rgb(127, 127, 127, alpha = 50, max=255)), c(names(Shape), 'G0'))
+	names(Cluster) <- c(unique(ann$Cluster))
+	Cluster <- 
+	Cluster <- setNames(c(Cluster, rgb(127, 127, 127, alpha = 50, max=255)), c(names(Cluster), 'G0'))
 
-	anno_colors   <- list(Group = Group, Shape=Shape)
-
+	anno_colors   <- list(Group = Group, Cluster=Cluster)
+	anno_colors$Cluster['G1'] <- anno_colors$Group['G1']
 	HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
 
 	plot_dims <- get_plot_dims(HM)
 
-	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
+	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_All',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
 	# print(HM$tree_col)
 	print(HM)
 	dev.off()
+
+	if(dataSet %in% c('Pancreas_01', 'PBMC')){
+		switch(dataSet,
+		Pancreas_01 = { golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1', 'CTRC', 'CPA1', 'AMY2A', 'SYCN', 'RBPJL', 'MIST1', 'HNF1B', 'PTF1A', 'CA19.9', 'PARM1', 'GP2', 'CD142', 'RBPJ', 'MYC')},
+		PBMC        = { golden_boys <- c('CD14', 'FCGR3A')}
+		)
+		golden_present <- tmp2[tmp2$gene_name %in% golden_boys,'gene_name']
+		
+		HM_sel <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+		plot_dims <- get_plot_dims(HM_sel)
+
+		row_order <- HM_sel$tree_row$order
+		data2heat2 <- data2heat[row_order,]
+		krtdata <- as.data.frame(data2heat2[rownames(data2heat2) %in% golden_present,])
+		# rownames(krtdata) <- 'KRT19'
+		data2heat2 <- data2heat2[!rownames(data2heat2) %in% golden_present,]
+		data2heat2 <- rbind(krtdata, data2heat2)
+		ann$Cluster <- NULL
+		HM <- pheatmap( data2heat2[1:50,],cluster_cols = HM$tree_col, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean",cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, cellheight= 5, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=5)
+		plot_dims <- get_plot_dims(HM)
+		pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_Sel',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
+		# print(HM$tree_col)
+			print(HM)
+		dev.off()
+	}
 
 	##
 	# Plot only the marker genes
@@ -431,7 +448,7 @@ TSNE_for_all <- function(dataSet){
 
 a = DE_with_TSNE('Pancreas_01', 'ductal', 'acinar')
 DE_with_TSNE('PBMC', 'Monocyte_FCGR3A', 'Monocyte_CD14', c('CD14', 'FCGR3A'))
-
+DE_with_TSNE("HumanDatasetRandom", )
 
 
 TSNE_for_all('PBMC')
