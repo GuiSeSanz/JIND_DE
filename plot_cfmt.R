@@ -42,7 +42,7 @@ mean_acc <- function(data_mat){
 }
 
 pd <- import("pandas")
-myBreaks <- c(seq(0,  0.4, length.out= 20), seq(0.41, 0.79, length.out=10), seq(0.8, 1, length.out=20))
+myBreaks <- c(seq(0,  0.2, length.out= 20), seq(0.21, 0.79, length.out=10), seq(0.8, 1, length.out=20))
 color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
 color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
 
@@ -75,7 +75,7 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   b <- process_CM(data)
   b[is.na(b)] <- 0
   
-  jind_raw <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('JIND+ ', dataSet_name, '\n Mean Accuracy (per Cell Type): ', mean_acc(b)), legend=F, breaks = myBreaks, fontsize = fontsize, fontsize_number = fontsize_number)
+  jind_raw <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('JIND+ (raw) ', dataSet_name, '\n Mean Accuracy (per Cell Type): ', mean_acc(b)), legend=F, breaks = myBreaks, fontsize = fontsize, fontsize_number = fontsize_number)
   file_xlsx <- file.path(out_path, paste0(dataSet, '_CM.xlsx' ))
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
