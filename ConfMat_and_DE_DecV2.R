@@ -50,10 +50,6 @@ get_plot_dims <- function(heat_map)
 }
 
 
-gencode22 <- read.table('/home/sevastopol/data/gserranos/UTILS/gencode.v22.annotation', header=T)
-gencode22$gene_id <- str_extract(gencode22$gene_id, 'ENSG[R]?[0-9]+')
-
-
 process_CM <- function(data){
 	b <- apply(data,2, FUN=function(x) (x/sum(x)))
 	b[is.nan(b)] <- NA
@@ -67,9 +63,22 @@ mean_acc <- function(data_mat){
 	return(round(mean(diag(data_mat[!grepl('Unassigned', rownames(data_mat)), ])),3))
 }
 
+
+library(dendsort)
+callback = function(hc, mat)
+{
+dendsort(hc, isReverse=T)
+
+}
+
 pd <- import("pandas")
 
-DATASETS <- list.files('/home/sevastopol/data/gserranos/JIND_DE/Data/')
+gencode22 <- read.table('/home/sevastopol/data/gserranos/UTILS/gencode.v22.annotation', header=T)
+gencode22$gene_id <- str_extract(gencode22$gene_id, 'ENSG[R]?[0-9]+')
+data_path = '/home/sevastopol/data/gserranos/JIND_DE/Data/'         # Use forward slash at the end of the path!
+plots_path = '/home/sevastopol/data/gserranos/JIND_DE/Plots/Dec20/' # Use forward slash at the end of the path!
+
+DATASETS <- list.files(data_path)
 
 
 color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
@@ -90,10 +99,10 @@ for (dataSet in DATASETS){
 			dataSet_name = 'PBMC 10x_v3-10x_v5'}
 	)
 
-	annotation <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/JIND_assignmentbrftune.pkl'))
+	annotation <- pd$read_pickle(paste0(data_path,dataSet,'/JIND_assignmentbrftune.pkl'))
 	annotation$cell_names <- rownames(annotation)
 
-	annotation_seurat <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/seurat_assignment.pkl'))
+	annotation_seurat <- pd$read_pickle(paste0(data_path,dataSet,'/seurat_assignment.pkl'))
 	annotation_seurat$cell_names <- rownames(annotation_seurat)
 
 	data <- as.data.frame.matrix(table(annotation$raw_predictions, annotation$labels))
@@ -101,7 +110,7 @@ for (dataSet in DATASETS){
 	b[is.na(b)] <- 0
 
 	jind_raw <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('JIND raw ', dataSet_name, ' mean accuracy: ', mean_acc(b)), legend=F, breaks = myBreaks, fontsize = 7)
-	file_xlsx <- paste0('/home/sevastopol/data/gserranos/JIND_DE/Plots/',dataSet,'_CM.xlsx' )
+	file_xlsx <- paste0(plots_path,dataSet,'_CM.xlsx' )
 	if (file.exists(file_xlsx)) {
   		file.remove(file_xlsx)
 	}
@@ -132,11 +141,11 @@ for (dataSet in DATASETS){
 
 	plot_dims <- get_plot_dims(jind)
 
-	pdf(paste0('./Plots/',dataSet,'_CM.pdf'), height = plot_dims$height *2  , width = plot_dims$width*2)
+	pdf(paste0(plots_path,dataSet,'_CM.pdf'), height = plot_dims$height *2  , width = plot_dims$width*2)
 	grid.arrange(grobs = list(jind_raw[[4]], jind[[4]], seurat_raw[[4]], seurat[[4]]), ncol=2)
 	dev.off()
 	
-	pdf(paste0('./Plots/',dataSet,'_CM_onlySJ.pdf'), height = plot_dims$height *3, width = plot_dims$width + 5)
+	pdf(paste0(plots_path,dataSet,'_CM_onlySJ.pdf'), height = plot_dims$height *3, width = plot_dims$width + 5)
 	grid.arrange(grobs = list(jind[[4]], jind_raw[[4]], seurat_raw[[4]]), ncol=1, nrow =3)
 	dev.off()
 
@@ -145,10 +154,10 @@ for (dataSet in DATASETS){
 
 
 
+DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NULL,data_path = data_path, plots_path = plots_path){
 
-DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
-	df  <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/test.pkl'))
-	annotation <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dataSet,'/JIND_assignmentbrftune.pkl'))
+	df  <- pd$read_pickle(paste0(data_path,dataSet,'/test.pkl'))
+	annotation <- pd$read_pickle(paste0(data_path, dataSet,'/JIND_assignmentbrftune.pkl'))
 	annotation$cell_names <- rownames(annotation)
 
 	all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
@@ -226,7 +235,7 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	# data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05 & abs(tmp$logFC)>0.5,'gene_name'],]
 	data2heat[data2heat > 5] <- 5
 
-	colors_MG = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
+	colors = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
 				rgb(44, 160, 44, max = 255), rgb(214, 39, 40, max =255),
 				rgb(148, 103, 189, max = 255), rgb(140, 86, 75, max =255),
 				rgb(227, 119, 194, max = 255), rgb(127, 127, 127, max =255),
@@ -236,16 +245,15 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
 	ann$Group <-  ifelse(ann$Group == target, 'G1', 'G2')
 	rownames(ann) <- colnames(data2heat)
-	Group         <- c(colors[target], colors[obj])
-	###
-	Group <- colors_MG
+	Group <- colors[1:length(unique(annotation$labels))]
 	names(Group) <-names(sort(table(as.character(annotation$labels) ), decreasing=T))
-	# names(Group)  <- c(levels(ann$Group))
-	names(Group) <- c('G1', 'G2')
-	anno_colors   <- list(Group = Group)
-	
+	# names(Group)  <- c(unique(ann$Group))
+	anno_colors <- c(Group[target],Group[obj])
+	names(anno_colors) <- c('G1', 'G2')
+	# anno_colors   <- list(anno_colors = anno_colors)
 
-	HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+
+	HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
 
 	plot_dims <- get_plot_dims(HM)
 
@@ -270,22 +278,26 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	ann$cell_id <- NULL
 	names(ann) <- c('Group', 'Cluster')
 	rownames(ann) <- colnames(data2heat)
-	Group         <- c(colors_main[target], colors_main[obj])
+	# Group_         <- c(Group[target], Group[obj])
 	
-	Cluster         <- colors_MG[which(!colors_MG %in% c(colors_main[target], colors_main[obj]))][1:counter]
+	Cluster         <- colors[which(!colors %in% c(anno_colors))][1:counter]
 	# names(Group)  <- c(levels(ann$Group))
-	names(Group) <- c(unique(ann$Group))
+	# names(Group_) <- c(unique(ann$Group))
 	names(Cluster) <- c(unique(ann$Cluster))
-	Cluster <- 
+	# Cluster <- 
 	Cluster <- setNames(c(Cluster, rgb(127, 127, 127, alpha = 50, max=255)), c(names(Cluster), 'G0'))
 
-	anno_colors   <- list(Group = Group, Cluster=Cluster)
-	anno_colors$Cluster['G1'] <- anno_colors$Group['G1']
-	HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+	callback = function(hc, mat)
+	{
+	dendsort(hc, isReverse=T)
+	}
+	anno_colors2  <- list(Group = anno_colors, Cluster=Cluster)
+	anno_colors2$Cluster['G1'] <- anno_colors['G1']
+	HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors2, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
 
 	plot_dims <- get_plot_dims(HM)
 
-	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_All',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
+	pdf(paste0(plots_path,dataSet,'_',target,'Vs',obj,'_HM_All.pdf'), height = plot_dims$height, width = plot_dims$width)
 	# print(HM$tree_col)
 	print(HM)
 	dev.off()
@@ -297,7 +309,7 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 		)
 		golden_present <- tmp2[tmp2$gene_name %in% golden_boys,'gene_name']
 		
-		HM_sel <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+		HM_sel <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
 		plot_dims <- get_plot_dims(HM_sel)
 
 		row_order <- HM_sel$tree_row$order
@@ -307,9 +319,10 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 		data2heat2 <- data2heat2[!rownames(data2heat2) %in% golden_present,]
 		data2heat2 <- rbind(krtdata, data2heat2)
 		ann$Cluster <- NULL
-		HM <- pheatmap( data2heat2[1:50,],cluster_cols = HM$tree_col, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean",cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, cellheight= 5, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=5)
+
+		HM <- pheatmap( data2heat2[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean",cellwidth= 2, annotation_colors = anno_colors2, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
 		plot_dims <- get_plot_dims(HM)
-		pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_Sel',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
+		pdf(paste0(plots_path,dataSet,'_',target,'Vs',obj,'_HM_Sel.pdf'), height = plot_dims$height, width = plot_dims$width)
 		# print(HM$tree_col)
 			print(HM)
 		dev.off()
@@ -331,7 +344,7 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 
 		plot_dims <- get_plot_dims(HM_1)
 
-		pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_2genes',Sys.Date(),'.pdf'), height = plot_dims$height*3, width = plot_dims$width)
+		pdf(paste0(plots_path,dataSet,'_',target,'Vs',obj,'_HM_2genes.pdf'), height = plot_dims$height*3, width = plot_dims$width)
 		grid.arrange(grobs = list(HM_1[[4]], HM_2[[4]]), nrow=2)
 		dev.off()
 	}
@@ -339,6 +352,7 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	# TSNE
 	#############
 	all_data2 <- all_data[, colnames(all_data) %in% annotation[annotation$labels %in% c(target, obj), 'cell_names']]
+	# set.seed(123)
 	tsne_out <- Rtsne(as.matrix(t(all_data2)))
 	plotter <-  as.data.frame(tsne_out$Y)
 
@@ -347,15 +361,15 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	plotter$cell_id <- rownames(annotation[rownames(annotation) %in% colnames(all_data2),])
 
 	labels <- data.frame(cell_id = colnames(all_data2) )
-	labels$group <- 'G0'
-	labels[labels$cell_id %in% G1,'group'] <- 'G1'
+	labels$Cluster <- 'G0'
+	labels[labels$cell_id %in% G1,'Cluster'] <- 'G1'
 	counter <- 1
 	for (cl in cluster_list){
-		labels[labels$cell_id %in% cluster_names[cluster_pos][cl], 'group'] <- paste0('G2_', counter)
+		labels[labels$cell_id %in% cluster_names[cluster_pos][cl], 'Cluster'] <- paste0('G2_', counter)
 		counter <- counter +1
 	}
 	
-	plotter$shape <- labels$group
+	plotter <- merge(plotter, labels, by ='cell_id')
 
 
 	euc.dist <- function(x1, x2) sqrt(sum((x1 - x2) ^ 2))
@@ -365,21 +379,22 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	}
 
 	mean_dist <- list()
-	for (gr in unique(plotter$shape)){
-		mean_dist[[gr]] <- c(c(mean(plotter[plotter$shape %in% c(gr), 'V1']), mean(plotter[plotter$shape %in% c(gr), 'V2'])))
+	for (gr in unique(plotter$Cluster)){
+		mean_dist[[gr]] <- c(c(mean(plotter[plotter$Cluster %in% c(gr), 'V1']), mean(plotter[plotter$Cluster %in% c(gr), 'V2'])))
 	}
-
+    print(mean_dist)
 	title <- c()
 	for (i in seq_along(mean_dist)){
 		print(i)
 		tmp <- paste0(names(mean_dist[i]), ' ratio dist.  ', paste(ratio_dist(mean_dist[i],  mean_dist['G0'], mean_dist['G1'])))
 		title <- paste(title, tmp, sep=' \n')
 	}
-	title <- paste(title, 'Ratio:  Acinar/Ductal', sep='\n')
+	title <- paste(title, paste0('Ratio:  ',obj,'/',target,''), sep='\n')
 
-	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_TSNE_',Sys.Date(),'.pdf'), 15,15)
-	print(ggplot(plotter, aes(x=V1, y=V2, color = shape, label = labels)) + theme_classic() + geom_text()  +scale_color_manual(values = anno_colors$Shape) + ggtitle(title))
-	print(ggplot(plotter, aes(x=V1, y=V2, color = shape)) + theme_classic() + geom_point(alpha = 0.8,size = 8)  +scale_color_manual(values = anno_colors$Shape) + ggtitle(title)  + 
+	pdf(paste0(plots_path,dataSet,'_',target,'Vs',obj,'_TSNE.pdf'), 15,15)
+	print(ggplot(plotter, aes(x=V1, y=V2, color = Cluster, label = labels)) + theme_classic() + geom_text()  +scale_color_manual(values = anno_colors2$Cluster) + ggtitle(title)+ theme(legend.text=element_text(size=15)))
+	print(ggplot(plotter, aes(x=V1, y=V2, color = Cluster)) + theme_classic() + geom_point(alpha = 0.8,size = 8)  +scale_color_manual(values = anno_colors2$Cluster) + ggtitle(title)  + 
+	theme(legend.text=element_text(size=15)) +
 	theme(axis.title.x=element_blank(),
         axis.text=element_blank(),
         axis.ticks=element_blank()) )
@@ -395,7 +410,7 @@ DE_with_TSNE <- function(dataSet, target, obj, plot_selected_genes = NULL){
 	library(wesanderson)
 	pal <- wes_palette("Zissou1", 100, type = "continuous")
 
-	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_TSNE_probs_',Sys.Date(),'.pdf'), 15,15)
+	pdf(paste0(plots_path,dataSet,'_',target,'Vs',obj,'_TSNE_probs.pdf'), 15,15)
 	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = labels)) + theme_bw() + geom_text()  +   scale_color_gradientn(colours = pal))
 	print(ggplot(plotter, aes(x=V1, y=V2, fill = prob)) + theme_bw() + geom_point(aes(fill=prob),colour="black", shape=21, size = 5) +scale_fill_gradientn(colours = pal) )# scale_fill_viridis(option="inferno"))
 	dev.off()
@@ -430,7 +445,7 @@ TSNE_for_all <- function(dataSet){
 
 	colors_labels = grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
 	colors_labels_ = sample(colors_labels, length(unique(plotter$labels)))
-	pdf(paste0('./Plots/Dec20/',dataSet,'_TSNE_probs_',Sys.Date(),'.pdf'), 15,15)
+	pdf(paste0(plots_path,dataSet,'_TSNE_probs.pdf'), 15,15)
 	print(ggplot(plotter, aes(x=V1, y=V2, fill = labels)) + theme_bw() + geom_point(aes(fill=labels) , colour="black", shape=21, size = 5, alpha = 0.7) + scale_fill_manual(values=colors_labels_) )
 	
 	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = labels)) + theme_bw() + geom_text(alpha = 0.6)  +   scale_color_gradientn(colours = pal))
@@ -446,8 +461,8 @@ TSNE_for_all <- function(dataSet){
 # obj    <- 'Monocyte_CD14'
 
 
-a = DE_with_TSNE('Pancreas_01', 'ductal', 'acinar')
-DE_with_TSNE('PBMC', 'Monocyte_FCGR3A', 'Monocyte_CD14', c('CD14', 'FCGR3A'))
+a = DE_with_TSNE('Pancreas_01', 'ductal', 'acinar', 25, ,data_path = data_path, plots_path = plots_path)
+a = DE_with_TSNE('PBMC', 'Monocyte_FCGR3A', 'Monocyte_CD14', 50,data_path = data_path, plots_path = plots_path)
 DE_with_TSNE("HumanDatasetRandom", )
 
 
@@ -561,7 +576,7 @@ df  <- pd$read_pickle(paste0('/home/sevastopol/data/gserranos/JIND_DE/Data/',dat
 
 	plot_dims <- get_plot_dims(HM)
 
-	pdf(paste0('./Plots/Dec20/',dataSet,'_',target,'Vs',obj,'_HM_',Sys.Date(),'.pdf'), height = plot_dims$height, width = plot_dims$width)
+	pdf(paste0(plots_path,dataSet,'_',target,'Vs',obj,'_HM.pdf'), height = plot_dims$height, width = plot_dims$width)
 	# print(HM$tree_col)
 	print(HM)
 	dev.off()
