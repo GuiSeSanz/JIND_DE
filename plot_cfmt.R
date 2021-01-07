@@ -1,4 +1,3 @@
-
 library(stringr)
 library(reticulate)
 library(limma)
@@ -56,6 +55,8 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
            dataSet_name = 'Human Hematopoiesis'},
          mouse_atlas_random = {
            dataSet_name = 'Mouse Atlas'},
+         mouse_dataset_random = {
+           dataSet_name = 'Mouse Cortex'},
          pancreas_01 = {
            dataSet_name = 'Pancreas Bar16-Mur16'},
          pancreas_02 = {
@@ -125,4 +126,4 @@ draw_cfmt("pancreas_02", path = path, out_path = out_path)
 draw_cfmt("human_blood_01", path = path, out_path = out_path)
 draw_cfmt("human_dataset_random", path = path, out_path = out_path)
 draw_cfmt("mouse_atlas_random", path = path, out_path = out_path)
-
+draw_cfmt("mouse_dataset_random", path = path, out_path = out_path)
