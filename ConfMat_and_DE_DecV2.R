@@ -161,7 +161,6 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
 	annotation$cell_names <- rownames(annotation)
 
 	all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
-	# all_data2 <- t(df2[, -which(colnames(df2) %in% c('labels'))])
 	var_5k=FALSE
 	if (var_5k==TRUE & !dataSet %in% c('PBMC', 'Pancreas_01', 'Pancreas_02')){
 		var_ <- apply(all_data, 1, var)
@@ -416,6 +415,8 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
 	dev.off()
 	return(setNames(list(cluster_list, cluster_names), c('cluster_list', 'cluster_names')))
 }
+
+
 
 TSNE_for_all <- function(dataSet){
 
