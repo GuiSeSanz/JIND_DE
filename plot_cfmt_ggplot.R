@@ -17,6 +17,8 @@ library(gridExtra)
 library(dendsort)
 library(viridis)
 library(grid)
+library(reshape)
+library(scales)
 
 
 get_plot_dims <- function(heat_map)
@@ -29,16 +31,16 @@ get_plot_dims <- function(heat_map)
 
 
 process_CM <- function(data){
-	b <- apply(data,2, FUN=function(x) (x/sum(x)))
-	b[is.nan(b)] <- NA
-	b[b==0] <- NA
-	b <- b[,colSums(is.na(b))<nrow(b)]
-	b <- b[rowSums(is.na(b))<ncol(b),]
-	return(b)
+  b <- apply(data,2, FUN=function(x) (x/sum(x)))
+  b[is.nan(b)] <- NA
+  b[b==0] <- NA
+  b <- b[,colSums(is.na(b))<nrow(b)]
+  b <- b[rowSums(is.na(b))<ncol(b),]
+  return(b)
 }
 
 mean_acc_pctype <- function(data_mat){
-	return(round(mean(diag(data_mat[!grepl('Unassigned', rownames(data_mat)), ])),3))
+  return(round(mean(diag(data_mat[!grepl('Unassigned', rownames(data_mat)), ])),3))
 }
 
 mean_acc <- function(pred, labs){
@@ -50,12 +52,40 @@ mean_acc <- function(pred, labs){
   return(round(acc,3))
 }
 
-create_plot <- function(hm){
-  setHook("grid.newpage", function() pushViewport(viewport(x=1,y=1,width=0.9, height=0.9, name="vp", just=c("right","top"))), action="prepend")
-  hm[[4]]
-  setHook("grid.newpage", NULL, "replace")
-  grid.text("xlabel example", y=-0.07, gp=gpar(fontsize=16))
-  grid.text("ylabel example", x=-0.07, rot=90, gp=gpar(fontsize=16))
+create_cm <- function(b, title){
+  ncells = ncol(b)
+  cm = data.frame(melt(b))
+  colnames(cm) = c("X1", "X2", "Acc")
+  fontsize = 8
+  fontsize_number = 8
+  fontsizetitle = 8
+  fontsizetitle = ncells  * fontsizetitle / 4
+  
+  cmplot <- ggplot(cm, aes(x = X2, y = X1)) +
+    geom_raster(aes(fill=Acc)) +
+    geom_text(aes(label = sprintf("%.2f", Acc)), vjust = 0.5, size=4) +
+    # scale_fill_gradient(low="red", high="green") +
+    scale_fill_gradient2(low = "#cb5b4c",
+                         mid = "white",
+                         high = '#1aab2d',
+                         midpoint = 0.5,
+                         space = "Lab",
+                         na.value = "grey50",
+                         guide = "colourbar",
+                         aesthetics = "fill") +
+    # scale_fill_manual( values = color_red_green, breaks = myBreaks) +
+    labs(x="Predicted Labels", y="True Labels") +
+    ggtitle(title) +
+    xlim((levels(cm$X2))) +
+    ylim(rev(levels(cm$X1))) +
+    theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
+                       axis.text.y=element_text(size=9, angle=0),
+                       plot.title=element_text(size=fontsizetitle, hjust = 0.5))
+  
+  panel_height = unit(0.5,"npc") - sum(ggplotGrob(cmplot)[["heights"]][-3]) - unit(1,"line")
+  cmplot <- cmplot + guides(fill= guide_colorbar(barheight=panel_height))
+  
+  return(cmplot)
 }
 
 
@@ -66,9 +96,6 @@ color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
 
 draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   dir.create(out_path, showWarnings = FALSE)
-  fontsize = 8
-  fontsize_number = 8
-  fontsizetitle = 8
   print(dataSet)
   switch(dataSet,
          human_dataset_random = {
@@ -103,49 +130,49 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   macc = mean_acc(annotation$raw_predictions, annotation$labels)
   b <- process_CM(data)
   b[is.na(b)] <- 0
-  
-  ncells = ncol(b)
-  fontsizetitle = ncells  * fontsizetitle / 8
-  
-  
-  jind_raw <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('JIND+ (raw) ', dataSet_name, '\n Mean Eff. Accuracy: ', format(round(macc, 3), nsmall = 3)), legend=F, breaks = myBreaks, fontsize = fontsizetitle, fontsize_row = fontsize, fontsize_col =  fontsize, fontsize_number = fontsize_number)
-  b[is.na(b)] <-0
   write.xlsx(b, file=file_xlsx, sheetName='JIND_raw', row.names = TRUE, append=TRUE)
+  
+  name = paste0('JIND+ (raw) ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  jind_raw <- create_cm(b, name)
   
   data <- as.data.frame.matrix(table(annotation$predictions, as.character(annotation$labels)))
   macc = mean_acc(annotation$predictions, annotation$labels)
   b <- process_CM(data)
   b[is.na(b)] <- 0
-  
-  jind <- pheatmap(b, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('JIND+ ', dataSet_name, '\n Mean Eff. Accuracy: ', format(round(macc, 3), nsmall = 3)), legend=F, breaks = myBreaks, fontsize = fontsizetitle, fontsize_row = fontsize, fontsize_col =  fontsize, fontsize_number = fontsize_number)
-  b[is.na(b)] <-0
   write.xlsx(b, file=file_xlsx, sheetName='JIND', row.names = TRUE, append=TRUE)
+  
+  name = paste0('JIND+', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  jind<- create_cm(b, name)
   
   data_seurat <- as.data.frame.matrix(table(annotation_seurat$raw_predictions, as.character(annotation$labels)))
   macc = mean_acc(annotation_seurat$raw_predictions, annotation_seurat$labels)
   b_seurat <- process_CM(data_seurat)
   b_seurat[is.na(b_seurat)] <-0
-  
-  seurat_raw <- pheatmap(b_seurat, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('Seurat-LT ', dataSet_name, '\n Mean Eff. Accuracy: ', format(round(macc, 3), nsmall = 3)), legend=T, breaks = myBreaks, fontsize = fontsizetitle, fontsize_row = fontsize, fontsize_col =  fontsize, fontsize_number = fontsize_number)
   write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat', row.names = TRUE, append=TRUE)
+  
+  name = paste0('Seurat', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  seurat_raw <- create_cm(b_seurat, name)
   
   data_seurat <- as.data.frame.matrix(table(annotation_seurat$predictions, as.character(annotation$labels)))
   macc = mean_acc(annotation_seurat$predictions, annotation_seurat$labels)
   b_seurat <- process_CM(data_seurat)
   b_seurat[is.na(b_seurat)] <-0
-  
-  seurat <- pheatmap(b_seurat, color=color_red_green, cluster_rows = F, cluster_cols=F, display_numbers=T, cellheight=25, cellwidth=25, na_col= '#cc5a4e', main=paste0('Seurat-LT rej', dataSet_name, '\n Mean Eff. Accuracy: ', format(round(macc, 3), nsmall = 3)), legend=T, breaks = myBreaks, fontsize = fontsizetitle, fontsize_row = fontsize, fontsize_col =  fontsize, fontsize_number = fontsize_number)
   write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat_raw', row.names = TRUE, append=TRUE)
   
-  plot_dims <- get_plot_dims(jind)
+  name = paste0('Seurat (rej)', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  seurat <- create_cm(b_seurat, name)
   
-  pdf(file.path(out_path, paste0(dataSet, '_CM.pdf')), family="Times", height = plot_dims$height *2  , width = plot_dims$width*2.3)
-  grid.arrange(grobs = list(jind[[4]], jind_raw[[4]], seurat_raw[[4]], seurat[[4]]), ncol=2)
+  ncells = ncol(b)
+  plotsize = ncells * 0.6
+  
+  pdf(file.path(out_path, paste0(dataSet, '_CM.pdf')), family="Times", height = plotsize * 2.1, width = plotsize * 2.3)
+  grid.arrange(grobs = list(jind, jind_raw, seurat_raw, seurat), ncol=2)
   dev.off()
   
-  pdf(file.path(out_path, paste0(dataSet, '_CM_onlySJ.pdf')), family="Times", height = plot_dims$height*2, width = plot_dims$width*2.2)
-  grid.arrange(grobs = list(jind_raw[[4]], jind[[4]], seurat_raw[[4]]), ncol=2, nrow =2)
+  pdf(file.path(out_path, paste0(dataSet, '_CM_onlySJ.pdf')), family="Times", height = plotsize * 2.1, width = plotsize * 2.3)
+  grid.arrange(grobs = list(jind_raw, jind, seurat_raw), ncol=2, nrow =2)
   dev.off()
+  
 }
 
 
