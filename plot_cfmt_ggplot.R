@@ -61,9 +61,10 @@ create_cm <- function(b, title){
   fontsizetitle = 8
   fontsizetitle = ncells  * fontsizetitle / 4
   
-  cmplot <- ggplot(cm, aes(x = X2, y = X1)) +
-    geom_raster(aes(fill=Acc)) +
-    geom_text(aes(label = sprintf("%.2f", Acc)), vjust = 0.5, size=4) +
+  cmplot <- ggplot(cm, aes(x = X2, y = X1, fill=Acc)) +
+    # geom_raster(aes(fill=Acc)) +
+    geom_tile(colour="white",size=0.25)+
+    geom_text(aes(label = sprintf("%.2f", Acc)), vjust = 0.5, size= min(3 / 8 * ncells, 6)) +
     # scale_fill_gradient(low="red", high="green") +
     scale_fill_gradient2(low = "#cb5b4c",
                          mid = "white",
@@ -72,19 +73,32 @@ create_cm <- function(b, title){
                          space = "Lab",
                          na.value = "grey50",
                          guide = "colourbar",
-                         aesthetics = "fill") +
+                         aesthetics = "fill",
+                         breaks = c(seq(0,  1.0, length.out= 5)),
+                         labels = c(seq(0,  1.0, length.out= 5)),
+                         limits=c(0,1)
+                         ) +
     # scale_fill_manual( values = color_red_green, breaks = myBreaks) +
+    # scale_y_discrete(expand=c(0,0))+
+    # scale_x_discrete(expand=c(0,0))+
     labs(x="Predicted Labels", y="True Labels") +
     ggtitle(title) +
     xlim((levels(cm$X2))) +
     ylim(rev(levels(cm$X1))) +
-    theme_bw() + theme(axis.text.x=element_text(size=9, angle=90, vjust=0.3),
-                       axis.text.y=element_text(size=9, angle=0),
-                       plot.title=element_text(size=fontsizetitle, hjust = 0.5))
+    theme(axis.text.x=element_text(size=12, angle=90, vjust=0.5),
+          axis.text.y=element_text(size=12, angle=0),
+          legend.text=element_text(face="bold", size=fontsizetitle * 0.7),
+          axis.title.x = element_text(size=fontsizetitle - 1, vjust=0.5),
+          axis.title.y = element_text(size=fontsizetitle - 1),
+          plot.title=element_text(size=fontsizetitle, hjust = 0.5),
+          plot.background=element_blank(),
+          panel.border=element_blank(),
+          plot.margin = unit(c(4,4,4,4), "mm")
+          )
   
   panel_height = unit(0.5,"npc") - sum(ggplotGrob(cmplot)[["heights"]][-3]) - unit(1,"line")
   cmplot <- cmplot + guides(fill= guide_colorbar(barheight=panel_height))
-  
+  # 
   return(cmplot)
 }
 
@@ -141,7 +155,7 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   b[is.na(b)] <- 0
   write.xlsx(b, file=file_xlsx, sheetName='JIND', row.names = TRUE, append=TRUE)
   
-  name = paste0('JIND+', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  name = paste0('JIND+ ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
   jind<- create_cm(b, name)
   
   data_seurat <- as.data.frame.matrix(table(annotation_seurat$raw_predictions, as.character(annotation$labels)))
@@ -150,7 +164,7 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   b_seurat[is.na(b_seurat)] <-0
   write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat', row.names = TRUE, append=TRUE)
   
-  name = paste0('Seurat', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  name = paste0('Seurat ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
   seurat_raw <- create_cm(b_seurat, name)
   
   data_seurat <- as.data.frame.matrix(table(annotation_seurat$predictions, as.character(annotation$labels)))
