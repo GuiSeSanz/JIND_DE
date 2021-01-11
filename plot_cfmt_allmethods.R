@@ -77,7 +77,7 @@ create_cm <- function(b, title){
                          breaks = c(seq(0,  1.0, length.out= 5)),
                          labels = c(seq(0,  1.0, length.out= 5)),
                          limits=c(0,1)
-                         ) +
+    ) +
     # scale_fill_manual( values = color_red_green, breaks = myBreaks) +
     # scale_y_discrete(expand=c(0,0))+
     # scale_x_discrete(expand=c(0,0))+
@@ -94,9 +94,9 @@ create_cm <- function(b, title){
           plot.background=element_blank(),
           panel.border=element_blank(),
           plot.margin = unit(c(4,4,4,4), "mm")
-          )
+    )
   
-  panel_height = unit(0.5,"npc") - sum(ggplotGrob(cmplot)[["heights"]][-3]) - unit(1,"line")
+  panel_height = unit(1.0,"npc") - sum(ggplotGrob(cmplot)[["heights"]][-3]) - unit(1,"line")
   cmplot <- cmplot + guides(fill= guide_colorbar(barheight=panel_height))
   # 
   return(cmplot)
@@ -108,7 +108,7 @@ myBreaks <- c(seq(0,  0.2, length.out= 20), seq(0.21, 0.79, length.out=10), seq(
 color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
 color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
 
-draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
+draw_cfmt_mthod <- function(dataSet, method, path = NULL, out_path = NULL){
   dir.create(out_path, showWarnings = FALSE)
   print(dataSet)
   switch(dataSet,
@@ -129,13 +129,34 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
          stop("Does Not Exist!")
   )
   
-  annotation <- pd$read_pickle(file.path(path, dataSet, 'JIND', 'JIND_assignmentbrftune.pkl'))
+  switch(method,
+         seurat = {
+           fpath = 'seurat/seurat_assignment.pkl'
+           mname = "Seurat"
+           },
+         jind = {
+           fpath = 'JIND/JIND_assignmentbrftune.pkl'
+           mname = "JIND+"
+           },
+         scpred = {
+           fpath = 'scPred/scPred_assignment.pkl'
+           mname = "scPred"
+           },
+         actinn = {
+           fpath = 'ACTINN/ACTINN_assignment.pkl'
+           mname = "ACTINN"
+           },
+         svmreject = {
+           fpath = 'SVMReject/SVMReject_assignment.pkl'
+           mname = "SVMReject"
+           },
+         stop("Does Not Exist!")
+  )
+  
+  annotation <- pd$read_pickle(file.path(path, dataSet, fpath))
   annotation$cell_names <- rownames(annotation)
   
-  annotation_seurat <- pd$read_pickle(file.path(path, dataSet, 'seurat', 'seurat_assignment.pkl'))
-  annotation_seurat$cell_names <- rownames(annotation_seurat)
-  
-  file_xlsx <- file.path(out_path, paste0(dataSet, '_CM.xlsx' ))
+  file_xlsx <- file.path(out_path, paste0(dataSet, "_", mname, '_CM.xlsx' ))
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
@@ -144,59 +165,35 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   macc = mean_acc(annotation$raw_predictions, annotation$labels)
   b <- process_CM(data)
   b[is.na(b)] <- 0
-  write.xlsx(b, file=file_xlsx, sheetName='JIND_raw', row.names = TRUE, append=TRUE)
+  write.xlsx(b, file=file_xlsx, sheetName=paste0(mname, "_raw"), row.names = TRUE, append=TRUE)
   
-  name = paste0('JIND+ (raw) ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
-  jind_raw <- create_cm(b, name)
+  name = paste0(mname, ' (raw) ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  cmplot_raw <- create_cm(b, name)
   
   data <- as.data.frame.matrix(table(annotation$predictions, as.character(annotation$labels)))
   macc = mean_acc(annotation$predictions, annotation$labels)
   b <- process_CM(data)
   b[is.na(b)] <- 0
-  write.xlsx(b, file=file_xlsx, sheetName='JIND', row.names = TRUE, append=TRUE)
+  write.xlsx(b, file=file_xlsx, sheetName=mname, row.names = TRUE, append=TRUE)
   
-  name = paste0('JIND+ ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
-  jind<- create_cm(b, name)
-  
-  data_seurat <- as.data.frame.matrix(table(annotation_seurat$raw_predictions, as.character(annotation$labels)))
-  macc = mean_acc(annotation_seurat$raw_predictions, annotation_seurat$labels)
-  b_seurat <- process_CM(data_seurat)
-  b_seurat[is.na(b_seurat)] <-0
-  write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat', row.names = TRUE, append=TRUE)
-  
-  name = paste0('Seurat ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
-  seurat_raw <- create_cm(b_seurat, name)
-  
-  data_seurat <- as.data.frame.matrix(table(annotation_seurat$predictions, as.character(annotation$labels)))
-  macc = mean_acc(annotation_seurat$predictions, annotation_seurat$labels)
-  b_seurat <- process_CM(data_seurat)
-  b_seurat[is.na(b_seurat)] <-0
-  write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat_raw', row.names = TRUE, append=TRUE)
-  
-  name = paste0('Seurat (rej)', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
-  seurat <- create_cm(b_seurat, name)
+  name = paste0(mname, " ", dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  cmplot<- create_cm(b, name)
   
   ncells = ncol(b)
   plotsize = ncells * 0.6
   
-  pdf(file.path(out_path, paste0(dataSet, '_CM.pdf')), family="Times", height = plotsize * 2.1, width = plotsize * 2.3)
-  grid.arrange(grobs = list(jind, jind_raw, seurat_raw, seurat), ncol=2)
-  dev.off()
-  
-  pdf(file.path(out_path, paste0(dataSet, '_CM_onlySJ.pdf')), family="Times", height = plotsize * 2.1, width = plotsize * 2.3)
-  grid.arrange(grobs = list(jind_raw, jind, seurat_raw), ncol=2, nrow =2)
+  pdf(file.path(out_path, paste0(dataSet, mname, '_CM.pdf')), family="Times", height = plotsize * 1.05, width = plotsize * 2.3)
+  grid.arrange(grobs = list(cmplot_raw, cmplot), ncol=2, nrow =1)
   dev.off()
   
 }
 
 
 path = "/home/mohit/mohit/seq-rna/Comparison/datasets"
-out_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlots"
+out_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsAllMethods"
 
-draw_cfmt("pancreas_01", path = path, out_path = out_path)
-draw_cfmt("pancreas_02", path = path, out_path = out_path)
-draw_cfmt("human_blood_01", path = path, out_path = out_path)
-draw_cfmt("human_dataset_random", path = path, out_path = out_path)
-draw_cfmt("mouse_atlas_random", path = path, out_path = out_path)
-draw_cfmt("mouse_dataset_random", path = path, out_path = out_path)
-draw_cfmt("pancreas_abcdnovel_01", path = path, out_path = out_path)
+draw_cfmt_mthod("pancreas_abcdnovel_01", "actinn", path = path, out_path = out_path)
+draw_cfmt_mthod("pancreas_abcdnovel_01", "jind", path = path, out_path = out_path)
+draw_cfmt_mthod("pancreas_abcdnovel_01", "seurat", path = path, out_path = out_path)
+draw_cfmt_mthod("pancreas_abcdnovel_01", "scpred", path = path, out_path = out_path)
+draw_cfmt_mthod("pancreas_abcdnovel_01", "svmreject", path = path, out_path = out_path)
