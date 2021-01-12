@@ -322,6 +322,9 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
 	tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
 
 	file_xlsx <- paste0(plots_path,dataSet,'_',target,'Vs',obj,'_DE.xlsx')
+	if (file.exists(file_xlsx)) {
+  		file.remove(file_xlsx)
+	}
 	write.xlsx( tmp[tmp$adj.P.Val<0.05,] , file=file_xlsx, sheetName='JIND_raw', row.names = TRUE, append=TRUE)
 	# pdf('./Plots/12_CD14.Mono.2_VP.pdf')
 	# 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
@@ -441,7 +444,12 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
 	#############
 	# TSNE
 	#############
-	all_data2 <- all_data[, colnames(all_data) %in% annotation[annotation$labels %in% c(target, obj), 'cell_names']]
+
+	G3 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+	G4 <- annotation[annotation$labels == obj & annotation$prediction == obj, 'cell_names']
+
+	all_data2 <- all_data[, colnames(all_data) %in%  c(G3, G4, G2)]
+	# all_data2 <- all_data[, colnames(all_data) %in% annotation[annotation$labels %in% c(target, obj), 'cell_names']]
 	# set.seed(123)
 	tsne_out <- Rtsne(as.matrix(t(all_data2)))
 	plotter <-  as.data.frame(tsne_out$Y)
