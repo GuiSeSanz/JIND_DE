@@ -383,7 +383,7 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
     dendsort(hc, isReverse=T)
   }
   anno_colors2  <- list(Group = anno_colors, Cluster=Cluster)
-  # anno_colors2$Cluster['G1'] <- anno_colors['G1']
+  anno_colors2$Cluster['G1'] <- anno_colors['G1']
   
   ann_temp <- ann
   ann_temp$Cluster <- NULL
