@@ -105,7 +105,7 @@ color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
 color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
 myBreaks <- c(seq(0,  0.4, length.out= 20), seq(0.41, 0.79, length.out=10), seq(0.8, 1, length.out=20))
 
-DE_with_TSNE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NULL,data_path = data_path, plots_path = plots_path){
+DE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NULL,data_path = data_path, plots_path = plots_path){
   dir.create(plots_path, showWarnings = FALSE)
   print(dataSet)
   switch(dataSet,
@@ -171,24 +171,28 @@ DE_with_TSNE_train <- function(dataSet, target, obj, genes_displ, plot_selected_
   contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
   fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
   fit2_tmp <- eBayes(fit2_tmp)
-  tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+  tmp   <- topTable(fit2_tmp, adjust="fdr", n=Inf)
   tmp$gene_name <- rownames(tmp)
-  # tmp <- merge(tmp, gencode22, by= 'gene_name')
-  
-  
   
   tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
   tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+  
+  file_xlsx <- file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_DEtrain.xlsx'))
+  if (file.exists(file_xlsx)) {
+    file.remove(file_xlsx)
+  }
+  write.xlsx( tmp[tmp$adj.P.Val<0.05,] , file=file_xlsx, sheetName='JIND+', row.names = TRUE, append=TRUE)
   
   # pdf('./Plots/12_CD14.Mono.2_VP.pdf')
   # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
   # dev.off()
   
   tmp$logpval <- -log(tmp$P.Value)
-  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
   
-  
-  data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.001,'gene_name'],]
+  # print(rownames(data_tmp))
+  # print(tmp2[tmp2$adj.P.Val<0.001,'gene_name'])
+  data2heat <- data_tmp[tmp2[tmp2$adj.P.Val<0.05,'gene_name'],]
   # data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05 & abs(tmp$logFC)>0.5,'gene_name'],]
   data2heat[data2heat > 5] <- 5
   
@@ -231,7 +235,7 @@ DE_with_TSNE_train <- function(dataSet, target, obj, genes_displ, plot_selected_
   ann$Cluster <- NULL
   
   cell_width = 1
-  HM <- pheatmap( data2heat_small[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellwidth= cell_width, annotation_colors = anno_colors2, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ', target,' (G1)\n and ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
+  HM <- pheatmap( data2heat_small[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellwidth= cell_width, annotation_colors = anno_colors, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ', target,' (G1)\n and ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
   plot_dims <- get_plot_dims(HM)
   pdf(file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_HM_Seltrainsmall.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
   # print(HM$tree_col)
@@ -242,8 +246,8 @@ DE_with_TSNE_train <- function(dataSet, target, obj, genes_displ, plot_selected_
 data_path = "/home/mohit/mohit/seq-rna/Comparison/datasets"
 plots_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsDE"
 
-a = DE_with_TSNE_train('pancreas_01', 'ductal', 'acinar', 25, data_path = data_path, plots_path = plots_path)
-a = DE_with_TSNE_train('human_blood_01', 'Monocyte_FCGR3A', 'Monocyte_CD14', 25, data_path = data_path, plots_path = plots_path)
+a = DE_train('pancreas_01', 'ductal', 'acinar', 25, data_path = data_path, plots_path = plots_path)
+a = DE_train('human_blood_01', 'Monocyte_FCGR3A', 'Monocyte_CD14', 25, data_path = data_path, plots_path = plots_path)
 
 
 DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NULL,data_path = data_path, plots_path = plots_path, plottSNE=TRUE){
@@ -313,12 +317,20 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
   # dev.off()
   
+  file_xlsx <- file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_DE.xlsx'))
+  if (file.exists(file_xlsx)) {
+    file.remove(file_xlsx)
+  }
+  write.xlsx( tmp[tmp$adj.P.Val<0.05,] , file=file_xlsx, sheetName='JIND+', row.names = TRUE, append=TRUE)
+  
   tmp$logpval <- -log(tmp$P.Value)
-  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
   
+  # print(rownames(data_tmp))
+  # print(tmp2[tmp2$adj.P.Val<0.001,'gene_name'])
+  data2heat <- data_tmp[tmp2[tmp2$adj.P.Val<0.05,'gene_name'],]
+  # data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2[tmp2$adj.P.Val<0.05,'gene_name'],]
   
-  data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05,'gene_name'],]
-  # data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05 & abs(tmp$logFC)>0.5,'gene_name'],]
   data2heat[data2heat > 5] <- 5
   
   colors = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
@@ -371,8 +383,11 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
     dendsort(hc, isReverse=T)
   }
   anno_colors2  <- list(Group = anno_colors, Cluster=Cluster)
-  anno_colors2$Cluster['G1'] <- anno_colors['G1']
-  HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors2, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
+  # anno_colors2$Cluster['G1'] <- anno_colors['G1']
+  
+  ann_temp <- ann
+  ann_temp$Cluster <- NULL
+  HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann_temp, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors2, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
   
   plot_dims <- get_plot_dims(HM)
   
@@ -393,10 +408,11 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
     # rownames(krtdata) <- 'KRT19'
     data2heat_small <- data2heat_small[!rownames(data2heat_small) %in% golden_present,]
     data2heat_small <- rbind(krtdata, data2heat_small)
-    ann$Cluster <- NULL
+    ann_tmp <- ann
+    ann_tmp$Cluster <- NULL
     
     cell_width = 1
-    HM <- pheatmap( data2heat_small[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellwidth= cell_width, annotation_colors = anno_colors2, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
+    HM <- pheatmap( data2heat_small[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = F, treeheight_row = 0, annotation_col = ann_tmp, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellwidth= cell_width, annotation_colors = anno_colors2, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
     plot_dims <- get_plot_dims(HM)
     pdf(file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_HM_Sel.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
     # print(HM$tree_col)
@@ -429,7 +445,12 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
     #############
     # TSNE
     #############
-    all_data2 <- all_data[, colnames(all_data) %in% annotation[annotation$labels %in% c(target, obj), 'cell_names']]
+    G3 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+    G4 <- annotation[annotation$labels == obj & annotation$prediction == obj, 'cell_names']
+    
+    all_data2 <- all_data[, colnames(all_data) %in%  c(G3, G4, G2)]
+    # all_data2 <- all_data[, colnames(all_data) %in% annotation[annotation$labels %in% c(target, obj), 'cell_names']]
+    
     # set.seed(123)
     tsne_out <- Rtsne(as.matrix(t(all_data2)))
     plotter <-  as.data.frame(tsne_out$Y)
@@ -498,6 +519,5 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
 data_path = "/home/mohit/mohit/seq-rna/Comparison/datasets"
 plots_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsDE"
 
-a = DE_with_TSNE('pancreas_01', 'ductal', 'acinar', 25, data_path = data_path, plots_path = plots_path, plottSNE = FALSE)
-a = DE_with_TSNE('human_blood_01', 'Monocyte_FCGR3A', 'Monocyte_CD14', 25, data_path = data_path, plots_path = plots_path, plottSNE = FALSE)
-DE_with_TSNE("HumanDatasetRandom")
+a = DE_with_TSNE('pancreas_01', 'ductal', 'acinar', 25, data_path = data_path, plots_path = plots_path, plottSNE = TRUE)
+a = DE_with_TSNE('human_blood_01', 'Monocyte_FCGR3A', 'Monocyte_CD14', 25, data_path = data_path, plots_path = plots_path, plottSNE = TRUE)

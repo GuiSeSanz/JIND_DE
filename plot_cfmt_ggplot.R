@@ -85,8 +85,8 @@ create_cm <- function(b, title){
     ggtitle(title) +
     xlim((levels(cm$X2))) +
     ylim(rev(levels(cm$X1))) +
-    theme(axis.text.x=element_text(size=12, angle=90, vjust=0.5),
-          axis.text.y=element_text(size=12, angle=0),
+    theme(axis.text.x=element_text(size=12, angle=90, colour = "black"),
+          axis.text.y=element_text(size=12, angle=0, colour = "black"),
           legend.text=element_text(face="bold", size=fontsizetitle * 0.7),
           axis.title.x = element_text(size=fontsizetitle - 1, vjust=0.5),
           axis.title.y = element_text(size=fontsizetitle - 1),
