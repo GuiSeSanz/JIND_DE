@@ -105,6 +105,146 @@ color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
 color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
 myBreaks <- c(seq(0,  0.4, length.out= 20), seq(0.41, 0.79, length.out=10), seq(0.8, 1, length.out=20))
 
+DE_with_TSNE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NULL,data_path = data_path, plots_path = plots_path){
+  dir.create(plots_path, showWarnings = FALSE)
+  print(dataSet)
+  switch(dataSet,
+         human_dataset_random = {
+           dataSet_name = 'Human Hematopoiesis'},
+         mouse_atlas_random = {
+           dataSet_name = 'Mouse Atlas'},
+         pancreas_01 = {
+           dataSet_name = 'Pancreas Bar16-Mur16'},
+         pancreas_02 = {
+           dataSet_name = 'Pancreas Bar16-Seg16'},
+         human_blood_01 = {
+           dataSet_name = 'PBMC 10x_v3-10x_v5'},
+         stop("Does Not Exist!")
+  )
+  
+  df  <- pd$read_pickle(file.path(data_path, dataSet, 'train.pkl'))
+  annotation <- data.frame(cell_names = rownames(df), labels = df$labels, stringsAsFactors = F)
+  rownames(annotation) <- annotation$cell_names
+  
+  all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
+  
+  stand_dev <- apply(all_data,1, sd)
+  all_data <- all_data[!rownames(all_data) %in% names(which(stand_dev ==0)), ]
+  
+  # tsne_out <- Rtsne(as.matrix(t(all_data)))
+  # plotter <-  as.data.frame(tsne_out$Y)
+  
+  annotation$labels <- gsub(' ', '_', annotation$labels)
+  
+  G1 <- annotation[annotation$labels == target , 'cell_names']
+  G2 <- annotation[ annotation$labels == obj, 'cell_names']
+  
+  selection <- c(G1, G2)
+  
+  data_tmp <- all_data[ , colnames(all_data) %in%  selection]
+  stand_dev <- apply(data_tmp,1, sd)
+  data_tmp <- data_tmp[!rownames(data_tmp) %in% names(which(stand_dev ==0)), ]
+  
+  
+  DESIGN <- data.frame(cells = colnames(data_tmp))
+  labels <- c()
+  for (cell in DESIGN$cells){
+    ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
+  }
+  DESIGN$labels <- labels
+  
+  design_tmp <- as.matrix(DESIGN[, 'labels'])
+  design_tmp[design_tmp != 'G1'] <-1
+  design_tmp[design_tmp == 'G1'] <-0
+  design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+  colnames(design_tmp) <- c('G1', 'G2')
+  rownames(design_tmp) <- colnames(data_tmp)
+  
+  
+  ### DE
+  # create the linear model
+  fit_tmp <- lmFit(data_tmp, design_tmp)
+  # model correction
+  fit_tmp <- eBayes(fit_tmp)
+  # results <- topTable(fit_tmp, n=Inf)
+  x <- paste0('G1', '-', 'G2')
+  contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
+  fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+  fit2_tmp <- eBayes(fit2_tmp)
+  tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+  tmp$gene_name <- rownames(tmp)
+  # tmp <- merge(tmp, gencode22, by= 'gene_name')
+  
+  
+  
+  tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+  tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+  
+  # pdf('./Plots/12_CD14.Mono.2_VP.pdf')
+  # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
+  # dev.off()
+  
+  tmp$logpval <- -log(tmp$P.Value)
+  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+  
+  
+  data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.001,'gene_name'],]
+  # data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05 & abs(tmp$logFC)>0.5,'gene_name'],]
+  data2heat[data2heat > 5] <- 5
+  
+  
+  colors = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
+             rgb(44, 160, 44, max = 255), rgb(214, 39, 40, max =255),
+             rgb(148, 103, 189, max = 255), rgb(140, 86, 75, max =255),
+             rgb(227, 119, 194, max = 255), rgb(127, 127, 127, max =255),
+             rgb(188, 189, 34, max = 255), rgb(23, 190, 207, max =255))
+  
+  
+  ann <- data.frame(Group = annotation[rownames(annotation) %in% colnames(data2heat), 'labels'])
+  ann$Group <-  ifelse(ann$Group == target, 'G1', 'G2')
+  rownames(ann) <- colnames(data2heat)
+  Group <- colors[1:length(unique(annotation$labels))]
+  names(Group) <-names(sort(table(as.character(annotation$labels) ), decreasing=T))
+  # names(Group)  <- c(unique(ann$Group))
+  anno_colors <- c(Group[target],Group[obj])
+  names(anno_colors) <- c('G1', 'G2')
+  # anno_colors   <- list(anno_colors = anno_colors)
+  anno_colors <- list(Group = anno_colors)
+  HM <- pheatmap( data2heat, cluster_rows = F, treeheight_row = 0, annotation_col = ann,annotation_colors = anno_colors, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, show_colnames = F, main = paste0('Heatmap between ', target,' (G1)\n and ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
+  plot_dims <- get_plot_dims(HM)
+  
+  pdf(file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_HM_Seltrain.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
+  print(HM)
+  dev.off()
+  
+  switch(dataSet,
+         pancreas_01 = { golden_boys <- c('KRT19', 'PDX1', 'SOX9', 'UEA1', 'GP2', 'CD142', 'PRSS1', 'CTRC', 'CPA1', 'AMY2A', 'SYCN', 'RBPJL', 'MIST1', 'HNF1B', 'PTF1A', 'CA19.9', 'PARM1', 'GP2', 'CD142', 'RBPJ', 'MYC')},
+         human_blood_01        = { golden_boys <- c('CD14', 'FCGR3A')}
+  )
+  golden_present <- tmp2[tmp2$gene_name %in% golden_boys,'gene_name']
+  
+  data2heat_small <- data2heat
+  krtdata <- as.data.frame(data2heat_small[rownames(data2heat_small) %in% golden_present,])
+  # rownames(krtdata) <- 'KRT19'
+  data2heat_small <- data2heat_small[!rownames(data2heat_small) %in% golden_present,]
+  data2heat_small <- rbind(krtdata, data2heat_small)
+  ann$Cluster <- NULL
+  
+  cell_width = 1
+  HM <- pheatmap( data2heat_small[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellwidth= cell_width, annotation_colors = anno_colors2, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ', target,' (G1)\n and ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
+  plot_dims <- get_plot_dims(HM)
+  pdf(file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_HM_Seltrainsmall.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
+  # print(HM$tree_col)
+  print(HM)
+  dev.off()
+}
+
+data_path = "/home/mohit/mohit/seq-rna/Comparison/datasets"
+plots_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsDE"
+
+a = DE_with_TSNE_train('pancreas_01', 'ductal', 'acinar', 25, data_path = data_path, plots_path = plots_path)
+a = DE_with_TSNE_train('human_blood_01', 'Monocyte_FCGR3A', 'Monocyte_CD14', 25, data_path = data_path, plots_path = plots_path)
+
 
 DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NULL,data_path = data_path, plots_path = plots_path, plottSNE=TRUE){
   dir.create(plots_path, showWarnings = FALSE)
@@ -247,20 +387,16 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
            human_blood_01        = { golden_boys <- c('CD14', 'FCGR3A')}
     )
     golden_present <- tmp2[tmp2$gene_name %in% golden_boys,'gene_name']
-    
-    HM_sel <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
-    plot_dims <- get_plot_dims(HM_sel)
-    
-    row_order <- HM_sel$tree_row$order
-    data2heat2 <- data2heat[row_order,]
-    krtdata <- as.data.frame(data2heat2[rownames(data2heat2) %in% golden_present,])
+
+    data2heat_small <- data2heat
+    krtdata <- as.data.frame(data2heat_small[rownames(data2heat_small) %in% golden_present,])
     # rownames(krtdata) <- 'KRT19'
-    data2heat2 <- data2heat2[!rownames(data2heat2) %in% golden_present,]
-    data2heat2 <- rbind(krtdata, data2heat2)
+    data2heat_small <- data2heat_small[!rownames(data2heat_small) %in% golden_present,]
+    data2heat_small <- rbind(krtdata, data2heat_small)
     ann$Cluster <- NULL
     
     cell_width = 1
-    HM <- pheatmap( data2heat2[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellwidth= cell_width, annotation_colors = anno_colors2, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
+    HM <- pheatmap( data2heat_small[1:genes_displ,],cluster_cols = HM$tree_col, cluster_rows = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellwidth= cell_width, annotation_colors = anno_colors2, show_colnames = F, cellheight= 7, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=8, callback = callback)
     plot_dims <- get_plot_dims(HM)
     pdf(file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_HM_Sel.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
     # print(HM$tree_col)
@@ -272,15 +408,15 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   # Plot only the marker genes
   ##
   if (!is.null(plot_selected_genes)){
-    data2heat2 <- data_tmp[rownames(data_tmp) %in% plot_selected_genes,]
-    ann <- data.frame(cell_id = colnames(data2heat2), Group = annotation[rownames(annotation) %in% colnames(data2heat2), 'predictions'])
+    data2heat_small <- data_tmp[rownames(data_tmp) %in% plot_selected_genes,]
+    ann <- data.frame(cell_id = colnames(data2heat_small), Group = annotation[rownames(annotation) %in% colnames(data2heat_small), 'predictions'])
     ann$Group <-  ifelse(ann$Group == target, 'G1', 'G2')
     ann$cell_id <- NULL
-    rownames(ann) <- colnames(data2heat2)
-    data2heat2 <- data2heat2[,order(-data2heat2[plot_selected_genes[1],])]
-    HM_1 <- pheatmap( data2heat2[plot_selected_genes[1],,drop=F], cluster_rows = F, cluster_cols = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
-    data2heat2 <- data2heat2[,order(-data2heat2[plot_selected_genes[2],])]
-    HM_2 <- pheatmap( data2heat2[plot_selected_genes[2],,drop=F], cluster_rows = F, cluster_cols = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+    rownames(ann) <- colnames(data2heat_small)
+    data2heat_small <- data2heat_small[,order(-data2heat_small[plot_selected_genes[1],])]
+    HM_1 <- pheatmap( data2heat_small[plot_selected_genes[1],,drop=F], cluster_rows = F, cluster_cols = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
+    data2heat_small <- data2heat_small[,order(-data2heat_small[plot_selected_genes[2],])]
+    HM_2 <- pheatmap( data2heat_small[plot_selected_genes[2],,drop=F], cluster_rows = F, cluster_cols = F, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4)
     
     plot_dims <- get_plot_dims(HM_1)
     
