@@ -550,6 +550,8 @@ TSNE_for_all <- function(dataSet){
 	
 	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = labels)) + theme_bw() + geom_text(alpha = 0.6)  +   scale_color_gradientn(colours = pal))
 	
+	print(ggplot(plotter, aes(x=V1, y=V2, color = prob, label = predictions)) + theme_bw() + geom_text(alpha = 0.6)  +   scale_color_gradientn(colours = pal))
+	
 	print(ggplot(plotter, aes(x=V1, y=V2, fill = prob)) + theme_bw() + geom_point(aes(fill=prob),colour="black", shape=21, size = 5, alpha = 0.6) +scale_fill_gradientn(colours = pal) )
 	dev.off()
 
