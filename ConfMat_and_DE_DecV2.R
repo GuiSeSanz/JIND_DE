@@ -331,7 +331,7 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
 	# dev.off()
 
 	tmp$logpval <- -log(tmp$P.Value)
-	tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval')]
+	tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
 
 
 	data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05,'gene_name'],]
@@ -556,6 +556,103 @@ TSNE_for_all <- function(dataSet){
 
 }
 
+
+NegativeControl_DE <- function(dataSet, target, plots_path){
+
+df  <- pd$read_pickle(paste0(data_path,dataSet,'/test.pkl'))
+annotation <- pd$read_pickle(paste0(data_path, dataSet,'/JIND_assignmentbrftune.pkl'))
+annotation$cell_names <- rownames(annotation)
+
+all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
+
+G1 <- annotation[annotation$labels == target & annotation$prediction == target, 'cell_names']
+G2 <- sample(G1, round(length(G1)/2))
+G1 <- setdiff(G1, G2)
+
+selection <- c(G1, G2)
+
+data_tmp <- all_data[ , colnames(all_data) %in%  selection]
+
+DESIGN <- data.frame(cells = colnames(data_tmp))
+labels <- c()
+for (cell in DESIGN$cells){
+    ifelse(cell %in% G1, labels <- c(labels, 'G1'), labels <- c(labels, 'G2'))
+}
+DESIGN$labels <- labels
+
+design_tmp <- as.matrix(DESIGN[, 'labels'])
+design_tmp[design_tmp != 'G1'] <-1
+design_tmp[design_tmp == 'G1'] <-0
+design_tmp <- model.matrix(~0+as.factor(design_tmp[,1]))
+colnames(design_tmp) <- c('G1', 'G2')
+rownames(design_tmp) <- colnames(data_tmp)
+
+
+### DE
+# create the linear model
+fit_tmp <- lmFit(data_tmp, design_tmp)
+# model correction
+fit_tmp <- eBayes(fit_tmp)
+# results <- topTable(fit_tmp, n=Inf)
+x <- paste0('G1', '-', 'G2')
+contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
+fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
+fit2_tmp <- eBayes(fit2_tmp)
+tmp   <- topTable(fit2_tmp, adjust="fdr", n=Inf)
+tmp$gene_name <- rownames(tmp)
+
+
+
+tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+
+# pdf('./Plots/Final_PBMC_NC_classMonCD_VP.pdf')
+# 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
+# dev.off()
+
+tmp$logpval <- -log(tmp$P.Value)
+tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
+tmp2 <- tmp[tmp$P.Value < 0.05,]
+
+file_xlsx <- paste0(plots_path,dataSet,'_',target,'_NC.xlsx')
+if (file.exists(file_xlsx)) {
+  		file.remove(file_xlsx)
+}
+
+write.xlsx(tmp2 , file=file_xlsx, sheetName='P.Value < 0.05', row.names = TRUE, append=TRUE)
+
+data2heat <- data_tmp[rownames(data_tmp) %in%  tmp2$gene_name,]
+data2heat[data2heat > 5] <- 5
+
+colors = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
+				rgb(44, 160, 44, max = 255), rgb(214, 39, 40, max =255),
+				rgb(148, 103, 189, max = 255), rgb(140, 86, 75, max =255),
+				rgb(227, 119, 194, max = 255), rgb(127, 127, 127, max =255),
+				rgb(188, 189, 34, max = 255), rgb(23, 190, 207, max =255))
+ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
+rownames(ann) <- colnames(data2heat)
+Var1        <- c(colors[1], colors[2])
+names(Var1) <- c(levels(ann$Var1))
+anno_colors <- list(Var1 = Var1)
+
+
+ann <- data.frame(Group = c(G1, G2))
+ann$Group <-  ifelse(ann$Group %in% G1, 'G1', 'G2')
+rownames(ann) <- colnames(data2heat)
+Group         <- c(Var1)
+names(Group) <- c('G1', 'G2')
+anno_colors   <- list(Group = Group)
+
+p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n  and ',target,' (G2) \nNEGATIVE CONTROL'), fontsize = 8,fontsize_row=10)
+
+plot_dims <- get_plot_dims(p)
+
+pdf(paste0(plots_path,dataSet,'_',target,'_NC_HM.pdf'), height = plot_dims$height, width = plot_dims$width)
+print(p)
+dev.off()
+
+}
+
+
 # dataSet <- 'PBMC'
 # target <- 'Monocyte_FCGR3A'
 # obj    <- 'Monocyte_CD14'
@@ -572,6 +669,8 @@ DE_with_TSNE("HumanDatasetRandom", )
 TSNE_for_all('PBMC')
 TSNE_for_all('Pancreas_01')
 
+NegativeControl_DE('Pancreas_01', 'ductal', plots_path = plots_path)
+NegativeControl_DE('PBMC', 'Monocyte_FCGR3A', plots_path = plots_path)
 
 
 a$cluster_names[a$cluster_list[[3]]]
