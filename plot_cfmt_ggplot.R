@@ -52,14 +52,20 @@ mean_acc <- function(pred, labs){
   return(round(acc,3))
 }
 
-create_cm <- function(b, title){
-  ncells = ncol(b)
-  cm = data.frame(melt(b))
+create_cm <- function(mat, title){
+  a1 = rownames(mat)[!(rownames(mat) %in% c("Unassigned"))]
+  a2 = rownames(mat)[(rownames(mat) %in% c("Unassigned"))]
+  lst = c(a1, a2)
+  mat = mat[lst,]
+  ncells = ncol(mat)
+  cm = data.frame(melt(mat))
   colnames(cm) = c("X1", "X2", "Acc")
   fontsize = 8
   fontsize_number = 8
   fontsizetitle = 8
   fontsizetitle = ncells  * fontsizetitle / 4
+  
+  cm$X1 = factor(cm$X1, level = lst) # Put Unassigned label at the end by specifying the order
   
   cmplot <- ggplot(cm, aes(x = X2, y = X1, fill=Acc)) +
     # geom_raster(aes(fill=Acc)) +
@@ -103,10 +109,12 @@ create_cm <- function(b, title){
 }
 
 
+
 pd <- import("pandas")
 myBreaks <- c(seq(0,  0.2, length.out= 20), seq(0.21, 0.79, length.out=10), seq(0.8, 1, length.out=20))
 color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
 color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
+
 
 draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   dir.create(out_path, showWarnings = FALSE)
