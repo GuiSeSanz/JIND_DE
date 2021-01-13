@@ -181,7 +181,7 @@ DE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NU
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
-  write.xlsx( tmp[tmp$adj.P.Val<0.05,] , file=file_xlsx, sheetName='JIND+', row.names = TRUE, append=TRUE)
+  write.xlsx( tmp[tmp$adj.P.Val<0.05,] , file=file_xlsx, sheetName='Cell Annotations', row.names = TRUE, append=TRUE)
   
   # pdf('./Plots/12_CD14.Mono.2_VP.pdf')
   # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
@@ -402,7 +402,7 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
            human_blood_01        = { golden_boys <- c('CD14', 'FCGR3A')}
     )
     golden_present <- tmp2[tmp2$gene_name %in% golden_boys,'gene_name']
-
+    
     data2heat_small <- data2heat
     krtdata <- as.data.frame(data2heat_small[rownames(data2heat_small) %in% golden_present,])
     # rownames(krtdata) <- 'KRT19'

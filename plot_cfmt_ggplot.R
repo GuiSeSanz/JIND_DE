@@ -85,10 +85,10 @@ create_cm <- function(b, title){
     ggtitle(title) +
     xlim((levels(cm$X2))) +
     ylim(rev(levels(cm$X1))) +
-    theme(axis.text.x=element_text(size=12, angle=90, colour = "black"),
-          axis.text.y=element_text(size=12, angle=0, colour = "black"),
+    theme(axis.text.x=element_text(size=12, angle=45, colour = "black", vjust=1.0, hjust=1.0),
+          axis.text.y=element_text(size=12, angle=0, colour = "black", hjust=1.0),
           legend.text=element_text(face="bold", size=fontsizetitle * 0.7),
-          axis.title.x = element_text(size=fontsizetitle - 1, vjust=0.5),
+          axis.title.x = element_text(size=fontsizetitle - 1),
           axis.title.y = element_text(size=fontsizetitle - 1),
           plot.title=element_text(size=fontsizetitle, hjust = 0.5),
           plot.background=element_blank(),

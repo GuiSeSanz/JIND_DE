@@ -85,10 +85,10 @@ create_cm <- function(b, title){
     ggtitle(title) +
     xlim((levels(cm$X2))) +
     ylim(rev(levels(cm$X1))) +
-    theme(axis.text.x=element_text(size=12, angle=90, vjust=0.5),
-          axis.text.y=element_text(size=12, angle=0),
+    theme(axis.text.x=element_text(size=12, angle=45, colour = "black", vjust=1.0, hjust=1.0),
+          axis.text.y=element_text(size=12, angle=0, colour = "black", hjust=1.0),
           legend.text=element_text(face="bold", size=fontsizetitle * 0.7),
-          axis.title.x = element_text(size=fontsizetitle - 1, vjust=0.5),
+          axis.title.x = element_text(size=fontsizetitle - 1),
           axis.title.y = element_text(size=fontsizetitle - 1),
           plot.title=element_text(size=fontsizetitle, hjust = 0.5),
           plot.background=element_blank(),
@@ -96,12 +96,11 @@ create_cm <- function(b, title){
           plot.margin = unit(c(4,4,4,4), "mm")
     )
   
-  panel_height = unit(1.0,"npc") - sum(ggplotGrob(cmplot)[["heights"]][-3]) - unit(1,"line")
+  panel_height = unit(0.5,"npc") - sum(ggplotGrob(cmplot)[["heights"]][-3]) - unit(1,"line")
   cmplot <- cmplot + guides(fill= guide_colorbar(barheight=panel_height))
   # 
   return(cmplot)
 }
-
 
 pd <- import("pandas")
 myBreaks <- c(seq(0,  0.2, length.out= 20), seq(0.21, 0.79, length.out=10), seq(0.8, 1, length.out=20))
