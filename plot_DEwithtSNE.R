@@ -76,7 +76,7 @@ perform_DE <- function(data, group){
   contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
   fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
   fit2_tmp <- eBayes(fit2_tmp)
-  tmp   <- topTable(fit2_tmp, adjust="BH", n=Inf)
+  tmp   <- topTable(fit2_tmp, adjust="fdr", n=Inf)
   tmp$gene_name <- rownames(tmp)
   
   return(tmp)
@@ -162,36 +162,30 @@ DE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NU
   
   
   ### DE
-  # create the linear model
-  fit_tmp <- lmFit(data_tmp, design_tmp)
-  # model correction
-  fit_tmp <- eBayes(fit_tmp)
-  # results <- topTable(fit_tmp, n=Inf)
-  x <- paste0('G1', '-', 'G2')
-  contrast_mat_tmp <- makeContrasts(contrasts=x, levels= c('G1', 'G2'))
-  fit2_tmp <- contrasts.fit(fit_tmp, contrast_mat_tmp)
-  fit2_tmp <- eBayes(fit2_tmp)
-  tmp   <- topTable(fit2_tmp, adjust="fdr", n=Inf)
-  tmp$gene_name <- rownames(tmp)
+  tmp <- perform_DE(data_tmp, design_tmp)
   
   tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
   tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
+  
+  tmp$logpval <- -log(tmp$P.Value)
+  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
   
   file_xlsx <- file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_DEtrain.xlsx'))
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
-  write.xlsx( tmp[tmp$adj.P.Val<0.05,] , file=file_xlsx, sheetName='Cell Annotations', row.names = TRUE, append=TRUE)
+  
+  if (nrow(tmp2) != 0){
+    write.xlsx(tmp2, file=file_xlsx, sheetName='Cell Annotations', row.names = TRUE, append=TRUE)
+  }
+  if (nrow(tmp2[tmp2$adj.P.Val<0.05,]) != 0){
+    write.xlsx(tmp2[tmp2$adj.P.Val<0.05,], file=file_xlsx, sheetName='Cell Annotations (FDR < 0.05)', row.names = TRUE, append=TRUE)
+  }
   
   # pdf('./Plots/12_CD14.Mono.2_VP.pdf')
   # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
   # dev.off()
   
-  tmp$logpval <- -log(tmp$P.Value)
-  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
-  
-  # print(rownames(data_tmp))
-  # print(tmp2[tmp2$adj.P.Val<0.001,'gene_name'])
   data2heat <- data_tmp[tmp2[tmp2$adj.P.Val<0.05,'gene_name'],]
   # data2heat <- data_tmp[rownames(data_tmp) %in%  tmp[tmp$adj.P.Val<0.05 & abs(tmp$logFC)>0.5,'gene_name'],]
   data2heat[data2heat > 5] <- 5
@@ -317,14 +311,20 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
   # dev.off()
   
+  tmp$logpval <- -log(tmp$P.Value)
+  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
+  
   file_xlsx <- file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_DE.xlsx'))
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
-  write.xlsx( tmp[tmp$adj.P.Val<0.05,] , file=file_xlsx, sheetName='JIND+', row.names = TRUE, append=TRUE)
   
-  tmp$logpval <- -log(tmp$P.Value)
-  tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
+  if (nrow(tmp2) != 0){
+    write.xlsx(tmp2, file=file_xlsx, sheetName='JIND+', row.names = TRUE, append=TRUE)
+  }
+  if (nrow(tmp2[tmp2$adj.P.Val<0.05,]) != 0){
+    write.xlsx(tmp2[tmp2$adj.P.Val<0.05,], file=file_xlsx, sheetName='JIND+ (FDR < 0.05)', row.names = TRUE, append=TRUE)
+  }
   
   # print(rownames(data_tmp))
   # print(tmp2[tmp2$adj.P.Val<0.001,'gene_name'])
@@ -353,8 +353,6 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   
   plot_dims <- get_plot_dims(HM)
   
-  
-  
   cluster_names <- HM$tree_col$labels
   cluster_pos <- HM$tree_col$order
   
@@ -376,6 +374,8 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   rownames(ann) <- colnames(data2heat)
   Cluster <- colors[which(!colors %in% c(anno_colors))][1:counter]
   names(Cluster) <- c(unique(ann$Cluster))
+  
+  Cluster_small <- setNames(c(Cluster), c(names(Cluster)))
   Cluster <- setNames(c(Cluster, rgb(127, 127, 127, alpha = 50, max=255)), c(names(Cluster), 'G0'))
   
   callback = function(hc, mat)
@@ -385,6 +385,9 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   anno_colors2  <- list(Group = anno_colors, Cluster=Cluster)
   anno_colors2$Cluster['G1'] <- anno_colors['G1']
   
+  anno_colors_small  <- list(Group = anno_colors, Cluster=Cluster_small)
+  anno_colors_small$Cluster['G1'] <- anno_colors['G1']
+  
   ann_temp <- ann
   ann_temp$Cluster <- NULL
   HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann_temp, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors2, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
@@ -392,6 +395,16 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   plot_dims <- get_plot_dims(HM)
   
   pdf(file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_HM_All.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
+  # print(HM$tree_col)
+  print(HM)
+  dev.off()
+  
+  ann_temp <- ann
+  HM <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann_temp, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 4,cellwidth= 2, annotation_colors = anno_colors_small, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n and ',target,' classified as ',obj,' (G2)'), fontsize = 8,fontsize_row=4, callback = callback)
+  # ann_temp$Cluster <- NULL
+  plot_dims <- get_plot_dims(HM)
+  
+  pdf(file.path(plots_path, paste0(dataSet,'_',target,'Vs',obj,'_HM_All_clusters.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
   # print(HM$tree_col)
   print(HM)
   dev.off()
