@@ -65,6 +65,7 @@ get_topk_features <- function(data, k = 5000){
   return(red_data)
 }
 
+
 perform_DE <- function(data, group){
   ### DE
   # create the linear model
@@ -79,9 +80,11 @@ perform_DE <- function(data, group){
   tmp   <- topTable(fit2_tmp, adjust="fdr", n=Inf)
   tmp$gene_name <- rownames(tmp)
   
+  tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+  tmp[tmp$adj.P.Val == 0, 'adj.P.Val'] <- 1.445749e-281
+  
   return(tmp)
 }
-
 
 process_CM <- function(data){
   b <- apply(data,2, FUN=function(x) (x/sum(x)))
@@ -94,6 +97,18 @@ process_CM <- function(data){
 
 mean_acc <- function(data_mat){
   return(round(mean(diag(data_mat[!grepl('Unassigned', rownames(data_mat)), ])),3))
+}
+
+write_excel <- function(frame, sheetname, file){
+  if (nrow(frame) != 0){
+    write.xlsx(frame, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE)
+  }
+  else {
+    dataframeempty <- t(as.data.frame(rep('NA', ncol(frame))))
+    colnames(dataframeempty) = colnames(frame)
+    rownames(dataframeempty) = c("NA")
+    write.xlsx(dataframeempty, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE, showNA = TRUE)
+  }
 }
 
 
@@ -154,27 +169,17 @@ NegativeControl_DE <- function(dataSet, target, data_path = data_path, plots_pat
   ### DE
   tmp <- perform_DE(data_tmp, design_tmp)
   
-  tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
-  tmp[tmp$adj.P.Val == 0, 'adj.P.Value'] <- 1.445749e-281
-  
   tmp$logpval <- -log(tmp$P.Value)
   tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
-  
-  print(nrow(tmp2))
-  print(nrow(tmp2[tmp2$adj.P.Val<0.05,]))
   
   file_xlsx <- file.path(plots_path, paste0(dataSet,'_',target, '_DENC.xlsx'))
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
   
-  if (nrow(tmp2) != 0){
-    write.xlsx(tmp2, file=file_xlsx, sheetName='NC', row.names = TRUE, append=TRUE)
-  }
-  if (nrow(tmp2[tmp2$adj.P.Val<0.05,]) != 0){
-    write.xlsx(tmp2[tmp2$adj.P.Val<0.05,], file=file_xlsx, sheetName='NC (FDR < 0.05)', row.names = TRUE, append=TRUE)
-  }
   
+  write_excel(tmp2, 'NC', file_xlsx)
+  write_excel(tmp2[tmp2$adj.P.Val<0.05,], 'NC (FDR < 0.05)', file_xlsx)
   
   data2heat <- data_tmp[tmp2[tmp2$adj.P.Val<0.05,'gene_name'],]
   

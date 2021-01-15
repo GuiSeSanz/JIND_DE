@@ -79,6 +79,9 @@ perform_DE <- function(data, group){
   tmp   <- topTable(fit2_tmp, adjust="fdr", n=Inf)
   tmp$gene_name <- rownames(tmp)
   
+  tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
+  tmp[tmp$adj.P.Val == 0, 'adj.P.Val'] <- 1.445749e-281
+  
   return(tmp)
 }
 
@@ -96,6 +99,18 @@ mean_acc <- function(data_mat){
   return(round(mean(diag(data_mat[!grepl('Unassigned', rownames(data_mat)), ])),3))
 }
 
+
+write_excel <- function(frame, sheetname, file){
+  if (nrow(frame) != 0){
+    write.xlsx(frame, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE)
+  }
+  else {
+    dataframeempty <- t(as.data.frame(rep('NA', ncol(frame))))
+    colnames(dataframeempty) = colnames(frame)
+    rownames(dataframeempty) = c("NA")
+    write.xlsx(dataframeempty, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE, showNA = TRUE)
+  }
+}
 
 
 
@@ -164,9 +179,6 @@ DE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NU
   ### DE
   tmp <- perform_DE(data_tmp, design_tmp)
   
-  tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
-  tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
-  
   tmp$logpval <- -log(tmp$P.Value)
   tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
   
@@ -175,12 +187,8 @@ DE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NU
     file.remove(file_xlsx)
   }
   
-  if (nrow(tmp2) != 0){
-    write.xlsx(tmp2, file=file_xlsx, sheetName='Cell Annotations', row.names = TRUE, append=TRUE)
-  }
-  if (nrow(tmp2[tmp2$adj.P.Val<0.05,]) != 0){
-    write.xlsx(tmp2[tmp2$adj.P.Val<0.05,], file=file_xlsx, sheetName='Cell Annotations (FDR < 0.05)', row.names = TRUE, append=TRUE)
-  }
+  write_excel(tmp2, 'Cell Annotations', file_xlsx)
+  write_excel(tmp2[tmp2$adj.P.Val<0.05,], 'Cell Annotations (FDR < 0.05)', file_xlsx)
   
   # pdf('./Plots/12_CD14.Mono.2_VP.pdf')
   # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
@@ -304,9 +312,6 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   
   tmp <- perform_DE(data_tmp, design_tmp)
   
-  tmp[tmp$P.Value == 0, 'P.Value'] <- 1.445749e-281
-  tmp[tmp$adj.P.Val == 0, 'P.Value'] <- 1.445749e-281
-  
   # pdf('./Plots/12_CD14.Mono.2_VP.pdf')
   # 	graphContrast(tmp," (Ctrl B > 0, FC>0.5)", 0, 0.5, 1)
   # dev.off()
@@ -319,12 +324,8 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
     file.remove(file_xlsx)
   }
   
-  if (nrow(tmp2) != 0){
-    write.xlsx(tmp2, file=file_xlsx, sheetName='JIND+', row.names = TRUE, append=TRUE)
-  }
-  if (nrow(tmp2[tmp2$adj.P.Val<0.05,]) != 0){
-    write.xlsx(tmp2[tmp2$adj.P.Val<0.05,], file=file_xlsx, sheetName='JIND+ (FDR < 0.05)', row.names = TRUE, append=TRUE)
-  }
+  write_excel(tmp2, 'JIND+', file_xlsx)
+  write_excel(tmp2[tmp2$adj.P.Val<0.05,], 'JIND+ (FDR < 0.05)', file_xlsx)
   
   # print(rownames(data_tmp))
   # print(tmp2[tmp2$adj.P.Val<0.001,'gene_name'])
