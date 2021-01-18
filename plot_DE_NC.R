@@ -101,13 +101,13 @@ mean_acc <- function(data_mat){
 
 write_excel <- function(frame, sheetname, file){
   if (nrow(frame) != 0){
-    write.xlsx(frame, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE)
+    write.xlsx(frame, file=file, sheetName=sheetname, row.names = FALSE, append=TRUE)
   }
   else {
     dataframeempty <- t(as.data.frame(rep('NA', ncol(frame))))
     colnames(dataframeempty) = colnames(frame)
     rownames(dataframeempty) = c("NA")
-    write.xlsx(dataframeempty, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE, showNA = TRUE)
+    write.xlsx(dataframeempty, file=file, sheetName=sheetname, row.names = FALSE, append=TRUE, showNA = TRUE)
   }
 }
 
@@ -120,7 +120,7 @@ color_red_green <- colorRampPalette(c('#4E62CC','#D8DBE2' , '#BA463E'))(50)
 color_red_green <- colorRampPalette(c('#cb5b4c','#D8DBE2', '#1aab2d'))(50)
 myBreaks <- c(seq(0,  0.4, length.out= 20), seq(0.41, 0.79, length.out=10), seq(0.8, 1, length.out=20))
 
-NegativeControl_DE <- function(dataSet, target, data_path = data_path, plots_path = plots_path){
+NegativeControl_DE <- function(dataSet, target, obj, data_path = data_path, plots_path = plots_path){
   dir.create(plots_path, showWarnings = FALSE)
   print(dataSet)
   switch(dataSet,
@@ -143,8 +143,10 @@ NegativeControl_DE <- function(dataSet, target, data_path = data_path, plots_pat
   
   all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
   
-  G1 <- annotation[annotation$labels == target, 'cell_names']
-  G2 <- sample(G1, round(length(G1)/2))
+  misclassifications = annotation[annotation$labels == target & annotation$prediction == obj, 'cell_names']
+  
+  G1 <- annotation[annotation$labels == target & annotation$prediction != "Unassigned", 'cell_names']
+  G2 <- sample(G1, length(misclassifications))
   G1 <- setdiff(G1, G2)
   
   selection <- c(G1, G2)
@@ -173,53 +175,72 @@ NegativeControl_DE <- function(dataSet, target, data_path = data_path, plots_pat
   tmp2 <- tmp[ order(-tmp$logpval), c('gene_name', 'logFC', 'P.Value' ,'logpval', 'adj.P.Val')]
   
   file_xlsx <- file.path(plots_path, paste0(dataSet,'_',target, '_DENC.xlsx'))
+  
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
   
+  res = data.frame(
+    Column = c("gene_name","logFC","P.Value","logpval","adj.P.Val"),
+    Meaning = c("Name of the gene",
+                "log of Fold Change",
+                "P-value output by package Limma",
+                "-log(P-value)",
+                "FDR Adjusted P-value")
+  )
   
+  write_excel(res, "Results", file_xlsx)
   write_excel(tmp2, 'NC', file_xlsx)
   write_excel(tmp2[tmp2$adj.P.Val<0.05,], 'NC (FDR < 0.05)', file_xlsx)
   
   data2heat <- data_tmp[tmp2[tmp2$adj.P.Val<0.05,'gene_name'],]
   
-  if (nrow(data2heat) > 0){
-    data2heat[data2heat > 5] <- 5
-    
-    colors = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
-               rgb(44, 160, 44, max = 255), rgb(214, 39, 40, max =255),
-               rgb(148, 103, 189, max = 255), rgb(140, 86, 75, max =255),
-               rgb(227, 119, 194, max = 255), rgb(127, 127, 127, max =255),
-               rgb(188, 189, 34, max = 255), rgb(23, 190, 207, max =255))
-    ann <- data.frame(Var1 = annotation[rownames(annotation) %in% colnames(data2heat), 'predictions'])
-    rownames(ann) <- colnames(data2heat)
-    Var1        <- c(colors[1], colors[2])
-    names(Var1) <- c(levels(ann$Var1))
-    anno_colors <- list(Var1 = Var1)
-    
-    
-    ann <- data.frame(Group = c(G1, G2))
-    ann$Group <-  ifelse(ann$Group %in% G1, 'G1', 'G2')
-    rownames(ann) <- colnames(data2heat)
-    Group         <- c(Var1)
-    names(Group) <- c('G1', 'G2')
-    anno_colors   <- list(Group = Group)
-    
-    p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = paste0('Heatmap between ',target,' classified as ',target,' (G1)\n  and ',target,' (G2) \nNEGATIVE CONTROL'), fontsize = 8,fontsize_row=10)
-    
-    plot_dims <- get_plot_dims(p)
-    
-    pdf(file.path(plots_path, paste0(dataSet,'_',target, '_HM_NC.pdf')), family="Times", height = plot_dims$height, width = plot_dims$width)
-    print(p)
-    dev.off()
+  cond = nrow(data2heat)
+  
+  plot_file = file.path(plots_path, paste0(dataSet,'_',target, '_HM_NC.pdf'))
+  
+  if (file.exists(plot_file)) {
+    file.remove(plot_file)
   }
-  
-  
-  
+
+  if (!is.null(cond)){
+    if (cond > 0){
+      data2heat[data2heat > 5] <- 5
+      
+      colors = c(rgb(31, 119, 180, max = 255), rgb(255, 127, 14, max =255),
+                 rgb(44, 160, 44, max = 255), rgb(214, 39, 40, max =255),
+                 rgb(148, 103, 189, max = 255), rgb(140, 86, 75, max =255),
+                 rgb(227, 119, 194, max = 255), rgb(127, 127, 127, max =255),
+                 rgb(188, 189, 34, max = 255), rgb(23, 190, 207, max =255))
+      
+      ann <- data.frame(Group = c(G1, G2))
+      ann$Group <-  ifelse(ann$Group %in% G1, 'G1', 'G2')
+      rownames(ann) <- colnames(data2heat)
+      Var1 <- c(colors[1], colors[2])
+      Group         <- c(Var1)
+      names(Group) <- c('G1', 'G2')
+      anno_colors   <- list(Group = Group)
+      
+      title = paste0('Heatmap between randomly selected subsets of ',target,' cells (Negative Control)')
+      p <- pheatmap( data2heat, cluster_rows = T, treeheight_row = 0, annotation_col = ann, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cellheight= 10,annotation_colors = anno_colors, show_colnames = F, main = title, fontsize = 6, fontsize_row = 6, callback = callback)
+      
+      plot_dims <- get_plot_dims(p)
+      
+      columns = ncol(data2heat)
+      multiplier = 200 / columns
+      
+      plot_file = file.path(plots_path, paste0(dataSet,'_',target, '_HM_NC.pdf'))
+      
+      pdf(plot_file, family="Times", height = plot_dims$height, width = plot_dims$width * multiplier)
+      print(p)
+      dev.off()
+    }
+   
+  }
 }
 
 data_path = "/home/mohit/mohit/seq-rna/Comparison/datasets"
-plots_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsNC"
+plots_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsNCCorrect"
 
-a = NegativeControl_DE('pancreas_01', 'ductal', data_path = data_path, plots_path = plots_path)
-a = NegativeControl_DE('human_blood_01', 'Monocyte_FCGR3A', data_path = data_path, plots_path = plots_path)
+a = NegativeControl_DE('pancreas_01', 'ductal', 'acinar', data_path = data_path, plots_path = plots_path)
+a = NegativeControl_DE('human_blood_01', 'Monocyte_FCGR3A', 'Monocyte_CD14', data_path = data_path, plots_path = plots_path)

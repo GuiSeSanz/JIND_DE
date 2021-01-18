@@ -102,13 +102,13 @@ mean_acc <- function(data_mat){
 
 write_excel <- function(frame, sheetname, file){
   if (nrow(frame) != 0){
-    write.xlsx(frame, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE)
+    write.xlsx(frame, file=file, sheetName=sheetname, row.names = FALSE, append=TRUE)
   }
   else {
     dataframeempty <- t(as.data.frame(rep('NA', ncol(frame))))
     colnames(dataframeempty) = colnames(frame)
     rownames(dataframeempty) = c("NA")
-    write.xlsx(dataframeempty, file=file, sheetName=sheetname, row.names = TRUE, append=TRUE, showNA = TRUE)
+    write.xlsx(dataframeempty, file=file, sheetName=sheetname, row.names = FALSE, append=TRUE, showNA = TRUE)
   }
 }
 
@@ -186,6 +186,17 @@ DE_train <- function(dataSet, target, obj, genes_displ, plot_selected_genes = NU
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
+  
+  res = data.frame(
+    Column = c("gene_name","logFC","P.Value","logpval","adj.P.Val"),
+    Meaning = c("Name of the gene",
+                "log of Fold Change",
+                "P-value output by package Limma",
+                "-log(P-value)",
+                "FDR Adjusted P-value")
+  )
+  
+  write_excel(res, "Results", file_xlsx)
   
   write_excel(tmp2, 'Cell Annotations', file_xlsx)
   write_excel(tmp2[tmp2$adj.P.Val<0.05,], 'Cell Annotations (FDR < 0.05)', file_xlsx)
@@ -323,6 +334,17 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   if (file.exists(file_xlsx)) {
     file.remove(file_xlsx)
   }
+  
+  res = data.frame(
+    Column = c("gene_name","logFC","P.Value","logpval","adj.P.Val"),
+    Meaning = c("Name of the gene",
+                "log of Fold Change",
+                "P-value output by package Limma",
+                "-log(P-value)",
+                "FDR Adjusted P-value")
+  )
+  
+  write_excel(res, "Results", file_xlsx)
   
   write_excel(tmp2, 'JIND+', file_xlsx)
   write_excel(tmp2[tmp2$adj.P.Val<0.05,], 'JIND+ (FDR < 0.05)', file_xlsx)
