@@ -281,7 +281,7 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
   )
   
   df  <- pd$read_pickle(file.path(data_path, dataSet, 'test.pkl'))
-  annotation <- pd$read_pickle(file.path(data_path, dataSet, 'JIND', 'JIND_assignmentbrftune.pkl'))
+  annotation <- pd$read_pickle(file.path(data_path, dataSet, 'JIND_raw_0', 'JIND_assignmentbrftune.pkl'))
   annotation$cell_names <- rownames(annotation)
   
   all_data <- t(df[, -which(colnames(df) %in% c('labels'))])
@@ -553,7 +553,7 @@ DE_with_TSNE <- function(dataSet, target, obj, genes_displ, plot_selected_genes 
 }
 
 data_path = "/home/mohit/mohit/seq-rna/Comparison/datasets"
-plots_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsDE"
+plots_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsDENew"
 
 a = DE_with_TSNE('pancreas_01', 'ductal', 'acinar', 25, data_path = data_path, plots_path = plots_path, plottSNE = TRUE)
 a = DE_with_TSNE('human_blood_01', 'Monocyte_FCGR3A', 'Monocyte_CD14', 25, data_path = data_path, plots_path = plots_path, plottSNE = TRUE)

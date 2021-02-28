@@ -128,8 +128,12 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
            dataSet_name = 'Mouse Cortex'},
          pancreas_01 = {
            dataSet_name = 'Pancreas Bar16-Mur16'},
+         pancreas_raw_01 = {
+           dataSet_name = 'Pancreas Bar16-Mur16'},
          pancreas_02 = {
            dataSet_name = 'Pancreas Bar16-Seg16'},
+         pancreas_raw_02 = {
+           dataSet_name = 'Pancreas Bar16-Mur16'},
          human_blood_01 = {
            dataSet_name = 'PBMC 10x_v3-10x_v5'},
          pancreas_abcdnovel_01 = {
@@ -137,11 +141,14 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
          stop("Does Not Exist!")
   )
   
-  annotation <- pd$read_pickle(file.path(path, dataSet, 'JIND', 'JIND_assignmentbrftune.pkl'))
+  annotation <- pd$read_pickle(file.path(path, dataSet, 'JIND_raw_0', 'JIND_assignmentbrftune.pkl'))
   annotation$cell_names <- rownames(annotation)
   
   annotation_seurat <- pd$read_pickle(file.path(path, dataSet, 'seurat', 'seurat_assignment.pkl'))
   annotation_seurat$cell_names <- rownames(annotation_seurat)
+  
+  annotation_itcluster <- pd$read_pickle(file.path(path, dataSet, 'ItClusterFinal_0', 'ItCluster_assignment.pkl'))
+  annotation_itcluster$cell_names <- rownames(annotation_seurat)
   
   file_xlsx <- file.path(out_path, paste0(dataSet, '_CM.xlsx' ))
   if (file.exists(file_xlsx)) {
@@ -172,7 +179,7 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   b_seurat[is.na(b_seurat)] <-0
   write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat', row.names = TRUE, append=TRUE)
   
-  name = paste0('Seurat ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  name = paste0('Seurat-LT ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
   seurat_raw <- create_cm(b_seurat, name)
   
   data_seurat <- as.data.frame.matrix(table(annotation_seurat$predictions, as.character(annotation$labels)))
@@ -181,14 +188,28 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
   b_seurat[is.na(b_seurat)] <-0
   write.xlsx(b_seurat, file=file_xlsx, sheetName='seurat_raw', row.names = TRUE, append=TRUE)
   
-  name = paste0('Seurat (rej)', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  name = paste0('Seurat-LT (rej)', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
   seurat <- create_cm(b_seurat, name)
+  
+  
+  data_itcluster <- as.data.frame.matrix(table(annotation_itcluster$predictions, as.character(annotation_itcluster$labels)))
+  macc = mean_acc(annotation_itcluster$predictions, annotation_itcluster$labels)
+  b_itcluster <- process_CM(data_itcluster)
+  b_itcluster[is.na(b_itcluster)] <-0
+  write.xlsx(b_seurat, file=file_xlsx, sheetName='itcluster', row.names = TRUE, append=TRUE)
+  
+  name = paste0('ItCluster ', dataSet_name, '\n Eff. Accuracy: ', format(round(macc, 3), nsmall = 3))
+  itcluster <- create_cm(b_itcluster, name)
   
   ncells = ncol(b)
   plotsize = ncells * 0.6
   
   pdf(file.path(out_path, paste0(dataSet, '_CM.pdf')), family="Times", height = plotsize * 2.1, width = plotsize * 2.3)
   grid.arrange(grobs = list(jind, jind_raw, seurat_raw, seurat), ncol=2)
+  dev.off()
+  
+  pdf(file.path(out_path, paste0(dataSet, '_CMItCluster.pdf')), family="Times", height = plotsize * 2.1, width = plotsize * 2.3)
+  grid.arrange(grobs = list(jind, jind_raw, seurat_raw, itcluster), ncol=2)
   dev.off()
   
   pdf(file.path(out_path, paste0(dataSet, '_CM_onlySJ.pdf')), family="Times", height = plotsize * 2.1, width = plotsize * 2.3)
@@ -199,12 +220,12 @@ draw_cfmt <- function(dataSet, path = NULL, out_path = NULL){
 
 
 path = "/home/mohit/mohit/seq-rna/Comparison/datasets"
-out_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlots"
+out_path = "/home/mohit/mohit/seq-rna/Comparison/JIND_DE/Plots/MohitPlotsNew"
 
-draw_cfmt("pancreas_01", path = path, out_path = out_path)
-draw_cfmt("pancreas_02", path = path, out_path = out_path)
+draw_cfmt("pancreas_raw_01", path = path, out_path = out_path)
+draw_cfmt("pancreas_raw_02", path = path, out_path = out_path)
 draw_cfmt("human_blood_01", path = path, out_path = out_path)
 draw_cfmt("human_dataset_random", path = path, out_path = out_path)
 draw_cfmt("mouse_atlas_random", path = path, out_path = out_path)
 draw_cfmt("mouse_dataset_random", path = path, out_path = out_path)
-draw_cfmt("pancreas_abcdnovel_01", path = path, out_path = out_path)
+# draw_cfmt("pancreas_abcdnovel_01", path = path, out_path = out_path)
