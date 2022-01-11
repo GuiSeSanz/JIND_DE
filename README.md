@@ -10,6 +10,8 @@ JIND: Joint Integration and Discriminationfor Automated Single-Cell Annotation.
 * __plot_cfmt_allmethods.R__: Computes the confusion matrices for all the methods studied on the paper.
 * __plot_cfmt_ggplot.R__: Computes the confusion matrices for Seurat, JIND and JIND with rejection. 
 
+<!--
 ## Data availability:
 The output of the predictions for all the methods are available on the _Data_ folder.
 The original gene expression data used for the DE analysis and for generating the predictions are available at XXX
+-->
